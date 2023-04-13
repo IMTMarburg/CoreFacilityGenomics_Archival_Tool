@@ -1,0 +1,6 @@
+{
+  "run": "200331_Run1",
+  "receivers": "finkernagel@imt.uni-marburg.de",
+  "type": "provide_download_link",
+  "status": "open"
+}
