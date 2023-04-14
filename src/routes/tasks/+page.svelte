@@ -20,7 +20,7 @@ function describe_task(task) {
 <th>Request time</th>
 <th>Finish time time</th>
 </tr>
-{#each data.tasks.reverse() as task}
+{#each data.tasks as task}
 <tr>
 <td>{describe_task(task)}</td>
 <td>{task.status}</td>

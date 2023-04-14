@@ -1,9 +1,10 @@
 <script lang="ts">
   import { format_timestamp, event_details, hash_string } from "$lib/util";
   import * as EmailValidator from "email-validator";
-  import { toast } from "@zerodevx/svelte-toast";
   export let data;
   export let form
+
+  let chosen_run = form?.run ?? "";
 
   function escape_name(name: string) {
     //escape for use in html id
@@ -23,10 +24,13 @@
   {/if}
 
   <label for="receivers">Receivers</label>
-  (comma seperated)
-  <input type="text" name="receivers" id="receivers" value={form?.receivers ??''}/>
+  (one per line)
+  <textarea name="receivers" id="receivers" value={form?.receivers ??''}></textarea>
   <br />
   Include:
+  {#if data.runs.length == 0}
+	  No runs currently in working set.
+  {:else}
   <ul>
     {#each data.runs as run}
       <li>
@@ -35,12 +39,14 @@
           name="run"
           id="run_{escape_name(run.name)}"
           value={run.name}
+		  bind:group={chosen_run}
           required
         />
-        <label for="run_{escape_name(run.name)}">Run {run.name}</label>
+        <label for="run_{escape_name(run.name)}">{run.name}</label>
       </li>
     {/each}
   </ul>
+  {/if}
   <input type="submit" value="Add send task" />
 </form>
 
@@ -54,6 +60,7 @@
       <th>Date</th>
       <th>Status</th>
       <th>Receiver</th>
+      <th>URL</th>
     </tr>
     {#each data.last_requests as task}
       <tr>
@@ -61,6 +68,14 @@
         <td>{format_timestamp(task.timestamp)}</td>
         <td>{task.status}</td>
         <td>{task.receivers}</td>
+        <td>
+		{#if task.filename}
+		<a href="../download/{task.filename}">Download</a>
+		{:else}
+			-
+		{/if}
+
+		</td>
       </tr>
     {/each}
   </table>

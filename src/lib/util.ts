@@ -21,23 +21,68 @@ export function format_timestamp(unix_timestamp: number) {
   }
 }
 
+function human_since(days: number) {
+  //< 365 days => x days
+  //afterwards y years and x days
+  if (days < 365) {
+    return `${days} days`;
+  } else {
+    const years = Math.floor(days / 365);
+    const rmdays = days % 365;
+    return `${years} years and ${rmdays} days`;
+  }
+}
+
+export function format_date_and_period(unix_timestamp: number) {
+  const date = new Date(unix_timestamp * 1000);
+  const isoDate = date.toISOString().split("T")[0];
+  const days_since = Math.floor((Date.now() - date.getTime()) / 86400000);
+  return `${isoDate} (${human_since(days_since)})`;
+}
+
 export function event_details(event: object) {
   switch (event.type) {
-    case "run_discovered":
+    /* case "run_discovered":
       return `<b>${event.name}</b><br />Run finish date: ${
         format_timestamp(event.run_finish_date)
       }`;
-      break;
+      break; */
     case undefined:
     default:
-      return JSON.stringify(event, null, 2).replaceAll("\n", "<br />");
+      let out = structuredClone(event);
+      for (let key in out) {
+        if (key.endsWith("_date") || key.endsWith("timestamp")) {
+          out[key + "_human"] = format_timestamp(out[key]);
+        }
+      }
+      delete out.type;
+      return tablify(out);
       break;
   }
+}
+
+function tablify(obj: object) {
+  let res = "<table>";
+  res += "<tr><th>Key</th><th>Value</th></tr>";
+  //iter sorted keys
+  for (let key of Object.keys(obj).sort()) {
+    //if value is an object, jsonify
+    if (typeof obj[key] == "object") {
+      res += `<tr><td>${key}</td><td style='text-align:left'><pre>${
+        JSON.stringify(obj[key], null, 2).trim()
+      }</pre></td></tr>`;
+    } else {
+      res += `<tr><td>${key}</td><td class='right'>${obj[key]}</td></tr>`;
+    }
+  }
+  res += "</table>";
+  return res;
 }
 
 export async function load_events() {
   return await load_json_log("events");
 }
+
 export async function load_tasks() {
   return await load_json_log("tasks");
 }
@@ -80,20 +125,32 @@ export async function add_json_log(key: string, data: object) {
   let pid = process.pid;
   let filename = `${timestamp}_${pid}.json`;
   let filepath = `${target_dir}/${filename}`;
+  //http header for authentificated user or 'web'
   let json = JSON.stringify(data, null, 2);
   //now write it to the file
   await fs.promises.writeFile(filepath, json);
 }
 
-export async function add_task(type: string, task: object) {
+export async function add_task(type: string, task: object, user) {
   task["type"] = type;
   task["status"] = "open";
+  task["source"] = user;
   await add_json_log("tasks", task);
-  await add_event("task_added", {'task': task});
+  await add_event("task_added", { "task": task }, user);
 }
 
-export async function add_event(type: string, data: object) {
+export async function update_task(task: object, new_values: object) {
+  let out = Object.assign({}, task, new_values);
+  let target_dir = process.env.DATA_DIR + "/tasks";
+  let filename = `${task.timestamp}_${task.pid}.json`;
+  let filepath = `${target_dir}/${filename}`;
+  let json = JSON.stringify(out, null, 2);
+  await fs.promises.writeFile(filepath, json);
+}
+
+export async function add_event(type: string, data: object, user: string) {
   data["type"] = type;
+  data["source"] = user;
   add_json_log("events", data);
 }
 
@@ -105,6 +162,7 @@ interface Run {
   download_count: number;
   in_working_set: boolean;
   in_archive?: boolean;
+  archive_date?: number;
 }
 
 type RunMap = {
@@ -113,32 +171,34 @@ type RunMap = {
 
 export async function load_runs() {
   let events = await load_events();
+  console.log(events);
 
   let runs: RunMap = {};
   //group events by run
   for (let ev of events) {
     if (ev.type == "run_discovered") {
-      runs[ev.name] = {
-        name: ev.name,
+      runs[ev.run] = {
+        name: ev.run,
         run_finish_date: ev.run_finish_date,
         download_count: 0,
         in_working_set: true,
       };
     } else if (ev.type == "run_download_provided") {
-      runs[ev.name]["download_available"] = true;
-      runs[ev.name]["download_name"] = ev.download_name;
+      runs[ev.run]["download_available"] = true;
+      runs[ev.run]["download_name"] = ev.filename;
     } else if (ev.type == "run_download_expired") {
-      runs[ev.name]["download_available"] = false;
+      runs[ev.run]["download_available"] = false;
     } else if (ev.type == "run_downloaded") {
-      runs[ev.name]["download_count"] += 1;
+      runs[ev.run]["download_count"] += 1;
     } else if (ev.type == "run_deleted_from_working_set") {
-      runs[ev.name]["in_working_set"] = false;
+      runs[ev.run]["in_working_set"] = false;
     } else if (ev.type == "run_restored_to_working_set") {
-      runs[ev.name]["in_working_set"] = true;
+      runs[ev.run]["in_working_set"] = true;
     } else if (ev.type == "run_archived") {
-      runs[ev.name]["in_archive"] = true;
+      runs[ev.run]["in_archive"] = true;
+      runs[ev.run]["archive_date"] = ev.timestamp;
     } else if (ev.type == "run_deleted_from_archive") {
-      runs[ev.name]["in_archive"] = false;
+      runs[ev.run]["in_archive"] = false;
     }
   }
   return runs;

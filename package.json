@@ -22,8 +22,8 @@
 	},
 	"type": "module",
 	"dependencies": {
-		"@zerodevx/svelte-toast": "^0.9.3",
 		"email-validator": "^2.0.4",
-		"prettier": "^2.8.7"
+		"prettier": "^2.8.7",
+		"svelte-paginate": "^0.1.0"
 	}
 }

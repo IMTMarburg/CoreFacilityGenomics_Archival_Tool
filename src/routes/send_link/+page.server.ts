@@ -1,5 +1,5 @@
-import { toast } from "@zerodevx/svelte-toast";
 import { fail } from "@sveltejs/kit";
+import * as EmailValidator from 'email-validator';
 
 import { add_task, load_tasks, load_workingdir_runs } from "$lib/util";
 
@@ -14,15 +14,20 @@ export async function load() {
       last_requests.push(tasks[ii]);
     }
   }
+  let runs = await load_workingdir_runs();
+  runs.sort((a, b) => {
+	  a["name"].localeCompare(b["name"]);
+  });
+
 
   return {
-    runs: await load_workingdir_runs(),
+    runs,
     last_requests,
   };
 }
 
 export const actions = {
-  default: async ({ cookies, request }) => {
+  default: async ({ cookies, request, locals }) => {
     const data = await request.formData();
     try {
       let runs = await load_workingdir_runs();
@@ -42,11 +47,20 @@ export const actions = {
       if (data.get("receivers").indexOf("@") == -1) {
         throw new Error("Receivers did not contain an @");
       }
+	  let individuals = data.get("receivers").split("\n");
+	  let receveivers = [];
+	  for (let individual of individuals) {
+		  individual = individual.trim();
+		  if (!EmailValidator.validate(individual)) {
+			  throw new Error("Invalid email address: '" + individual + "'");
+		  }
+		  receveivers.push(individual);
+	  }
       add_task("provide_download_link", {
         "run": data.get("run"),
-        "receivers": data.get("receivers"),
+        "receivers": receveivers,
+		user: locals.user,
       });
-      toast.push("Added");
     } catch (error) {
       return fail(422, {
         run: data.get("run"),

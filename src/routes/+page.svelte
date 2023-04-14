@@ -2,7 +2,7 @@
 export let data;
 
 </script>
-<h1>Sequencer archival tool</h1>
+Welcome {data.user}
 <h2>Actions</h2>
 <ul>
   <li><a href="/send_link">Send download link</a></li>
