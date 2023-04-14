@@ -17,6 +17,14 @@
 </script>
 
 <h1>Send Link</h1>
+<p>Packs a run folder into a .tar.gz and then sends an email to the specified recepients providing 
+a download links. Download links expire eventually.<br />
+
+Sending another link for the same folder will not pack it again, but duplicate the existing .tar.gz 
+file. They both expire at their natural days.
+</p>
+
+
 
 <form method="POST" >
   {#if form?.error}
@@ -24,7 +32,7 @@
   {/if}
 
   <label for="receivers">Receivers</label>
-  (one per line)
+  (one per line, leave empty for 'no email send')
   <textarea name="receivers" id="receivers" value={form?.receivers ??''}></textarea>
   <br />
   Include:
@@ -40,7 +48,6 @@
           id="run_{escape_name(run.name)}"
           value={run.name}
 		  bind:group={chosen_run}
-          required
         />
         <label for="run_{escape_name(run.name)}">{run.name}</label>
       </li>
@@ -67,7 +74,18 @@
         <td>{task.run}</td>
         <td>{format_timestamp(task.timestamp)}</td>
         <td>{task.status}</td>
-        <td>{task.receivers}</td>
+        <td>{task.receivers}
+		{#if task.email_success === true}
+		(Sent)
+		{:else  if (task.email_success === false)}
+		{#if task['receivers'].length > 0}
+		<span class="error">
+		(failed)
+		</span>
+		{/if}
+		{/if}
+
+		</td>
         <td>
 		{#if task.filename}
 		<a href="../download/{task.filename}">Download</a>

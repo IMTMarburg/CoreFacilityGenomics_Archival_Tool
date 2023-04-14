@@ -1,4 +1,7 @@
 import shutil
+import tempfile
+from email.mime.text import MIMEText
+import smtplib
 import datetime
 import random
 import string
@@ -11,8 +14,14 @@ import os
 
 download_dir = Path(os.environ["DOWNLOAD_DIR"])
 working_dir = Path(os.environ["WORKING_DIR"])
-event_dir = Path(os.environ["DATA_DIR"]) / "events"
-task_dir = Path(os.environ["DATA_DIR"]) / "tasks"
+deleted_dir = Path(os.environ["DELETE_DIR"])
+archived_dir = Path(os.environ["ARCHIVE_DIR"])
+data_dir = Path(os.environ["DATA_DIR"])
+event_dir = data_dir / "events"
+task_dir = data_dir / "tasks"
+secret_file = Path(os.environ["SECRETS_FILE"])
+
+default_template = "Your download is available at %URL%."
 
 download_cleanup_timeout_seconds = 3600 * 24 * 31
 
@@ -127,8 +136,72 @@ def tar_output_folder(input_folder, output_file, exclude_data_folder=False):
     ]
     print(cmd)
     if exclude_data_folder:
-        cmd += ["--exclude", "Data"]
+        cmd.insert(1, ["--exclude", "Data"])
     subprocess.check_call(cmd, cwd=input_folder.parent)
+
+
+def tar_and_encrypt(input_folder, output_file):
+    p = subprocess.Popen(
+        ["rage-keygen"], stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+    stdout, stderr = p.communicate()
+    pub_key = stderr.decode("utf-8").strip()
+    key = stdout.decode("utf-8").strip()
+    # look like # public key: age13a3nlgjva9474uutesr2xqwtk2zcwcvdw4jdw4zkphz37jhry93qsctkys
+    public_key = pub_key[pub_key.find(":") + 1 :].strip()
+    # print('public key is', repr(public_key))
+    tar_cmd = ["tar", "--exclude", "Data", "-cz", str(input_folder.name)]
+    rage_cmd = ["rage", "-e", "-", "-o", str(output_file.absolute()), "-r", public_key]
+    process_tar = subprocess.Popen(
+        tar_cmd, cwd=input_folder.parent, stdout=subprocess.PIPE
+    )
+    process_rage = subprocess.Popen(
+        rage_cmd,
+        stdin=process_tar.stdout,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    rage_stdout, rage_stderr = process_rage.communicate()
+    tar_stdout, tar_stderr = process_tar.communicate()
+    if process_tar.returncode != 0:
+        raise Exception(f"tar failed {tar_stderr}")
+    if process_rage.returncode != 0:
+        raise Exception(f"rage failed {rage_stderr}")
+    return key, output_file.stat().st_size
+
+
+def decrypt_and_untar(encrypted_file, output_folder, key):
+    output_folder = Path(output_folder)
+    output_folder.mkdir(exist_ok=True)
+    try:
+        with open("key", "wb") as tf:
+            tf.write(key.encode("utf-8"))
+            tf.flush()
+            rage_cmd = [
+                "rage",
+                "-d",
+                str((archived_dir / encrypted_file).absolute()),
+                "-i",
+                tf.name,
+                "-o",
+                "-",
+            ]
+            tar_cmd = ["tar", "xz"]
+            print(rage_cmd)
+            print(tar_cmd)
+            process_rage = subprocess.Popen(rage_cmd, stdout=subprocess.PIPE)
+            process_tar = subprocess.Popen(
+                tar_cmd, stdin=process_rage.stdout, cwd=output_folder
+            )
+            tar_stdout, tar_stderr = process_tar.communicate()
+            rage_stdout, rage_stderr = process_rage.communicate()
+            if process_tar.returncode != 0:
+                raise Exception(f"tar failed {tar_stderr}")
+            if process_rage.returncode != 0:
+                raise Exception(f"rage failed {rage_stderr}")
+    except:
+        shutil.rmtree(output_folder)
+        raise
 
 
 def find_run(run):
@@ -140,6 +213,39 @@ def find_run(run):
             if rta_complete.parent.name == run:
                 return rta_complete.parent
     raise ValueError("Not found")
+
+
+def get_template():
+    path = data_dir / "template.txt"
+    try:
+        return path.read_text()
+    except:
+        return default_template
+
+
+def send_email(receivers, filename):
+    with open(secret_file) as f:
+        secrets = json.load(f)
+    sender = secrets["mail"]["sender"]
+    username = secrets["mail"]["username"]
+    password = secrets["mail"]["password"]
+    smtp_server = secrets["mail"]["host"]
+    smtp_port = secrets["mail"]["port"]
+    template = get_template()
+    url = secrets["mail"]["url"] + filename
+    message = template.replace("%URL%", url)
+    msg = MIMEText(message)
+    msg["Subject"] = "Sequencing run finished"
+    msg["From"] = sender
+    msg["To"] = ",".join(receivers)
+    s = smtplib.SMTP(smtp_server, smtp_port)
+    s.starttls()
+    s.login(username, password)
+    res = s.sendmail(msg["From"], receivers, msg.as_string())
+    if res:
+        raise ValueError(res)
+    res = s.quit()
+    return str(msg)
 
 
 def provide_download_link(task):
@@ -156,15 +262,35 @@ def provide_download_link(task):
             os.link(download_dir / last_provided_download, download_dir / output_name)
         else:
             tar_output_folder(find_run(task["run"]), download_dir / output_name)
+        if task["receivers"]:
+            try:
+                email = send_email(task["receivers"], output_name)
+                email_success = "Mail sent:\n " + email
+            except Exception as e:
+                email_success = f"Sent failed: {e}"
+                raise
+        else:
+            email_success = "No receivers"
         add_event(
             {
                 "type": "run_download_provided",
                 "run": task["run"],
                 "filename": str(output_name),
+                "finish_time": int(time.time()),
+                "details": {"receivers": task["receivers"]},
+                "email_success": email_success,
             }
         )
-        update_task(task, {"status": "done", "filename": output_name})
+        update_task(
+            task,
+            {
+                "status": "done",
+                "filename": output_name,
+                "email_success": email_success.startswith("Mail sent"),
+            },
+        )
     except Exception as e:
+        raise
         update_task(task, {"status": "failed", "msg": str(e)})
 
 
@@ -243,12 +369,71 @@ def discover_runs():
             add_event({"type": "run_restored_to_working_set", "run": str(run)})
 
 
+def delete_run(task):
+    source = find_run(task["run"])
+    target = deleted_dir / task["run"]
+    shutil.copytree(source, target, dirs_exist_ok=True)
+    shutil.rmtree(source)
+    add_event({"type": "run_deleted_from_working_set", "run": task["run"]})
+    update_task(task, {"status": "done"})
+
+
+def archive_run(task):
+    source = find_run(task["run"])
+    target = archived_dir / (safe_name(task["run"]) + ".tar.gz.age")
+    key, size = tar_and_encrypt(source, target)
+    add_event(
+        {
+            "type": "run_archived",
+            "run": task["run"],
+            "archive_date": int(time.time()),
+            "filename": target.name,
+            "size": size,
+            "key": key,
+        }
+    )
+
+
+def unarchive_run(task):
+    events = load_events()
+    for ev in reversed(events):
+        if ev["type"] == "run_archived" and ev["run"] == task["run"]:
+            source = ev["filename"]
+            key = ev["key"]
+            target = working_dir / task["run"]
+            if target.exists():
+                update_task(
+                    task,
+                    {
+                        "status": "failed",
+                        "reason": "already present in working directory",
+                    },
+                )
+                return
+            decrypt_and_untar(source, target, key)
+            update_task(task, {"status": "done", "restore_date": int(time.time())})
+            return
+    raise ValueError("could not find archive event")
+    update_task(task, {"status": "failed", "reason": "could not find archive event"})
+
+
 for task in get_open_tasks():
     print(task)
     if task["type"] == "provide_download_link":
         update_task(task, {"status": "processing"})
         provide_download_link(task)
-
+    elif task["type"] == "delete_run":
+        update_task(task, {"status": "processing"})
+        delete_run(task)
+    elif task["type"] == "archive_run":
+        update_task(task, {"status": "processing"})
+        archive_run(task)
+        if task.get("delete_after_archive", False):
+            delete_run(task)
+        update_task(task, {"status": "done"})
+    elif task["type"] == "restore_run":
+        update_task(task, {"status": "processing"})
+        unarchive_run(task)
 
 cleanup_downloads()
 discover_runs()

@@ -2,6 +2,7 @@
   import { format_timestamp, event_details } from "$lib/util";
   export let data;
   import { paginate, LightPaginationNav } from "svelte-paginate";
+  import JSONViewer from "$lib/components/JSONViewer.svelte";
 
   let filter = "";
   let text_filter = "";
@@ -51,14 +52,14 @@ Text search
     <tr>
       <td>{format_timestamp(event.timestamp)}</td>
       <td>{event.type}</td>
-      <td>{@html event_details(event)}</td>
+	  <td><JSONViewer object={event_details(event)} /></td>
     </tr>
   {/each}
 </table>
 <br />
 
 <LightPaginationNav
-  totalItems={data.events.length}
+  totalItems={filtered.length}
   {pageSize}
   {currentPage}
   limit={1}

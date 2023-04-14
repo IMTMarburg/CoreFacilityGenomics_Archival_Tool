@@ -53,30 +53,14 @@ export function event_details(event: object) {
       for (let key in out) {
         if (key.endsWith("_date") || key.endsWith("timestamp")) {
           out[key + "_human"] = format_timestamp(out[key]);
+          delete out[key];
         }
       }
       delete out.type;
-      return tablify(out);
+      delete out.pid;
+      return out;
       break;
   }
-}
-
-function tablify(obj: object) {
-  let res = "<table>";
-  res += "<tr><th>Key</th><th>Value</th></tr>";
-  //iter sorted keys
-  for (let key of Object.keys(obj).sort()) {
-    //if value is an object, jsonify
-    if (typeof obj[key] == "object") {
-      res += `<tr><td>${key}</td><td style='text-align:left'><pre>${
-        JSON.stringify(obj[key], null, 2).trim()
-      }</pre></td></tr>`;
-    } else {
-      res += `<tr><td>${key}</td><td class='right'>${obj[key]}</td></tr>`;
-    }
-  }
-  res += "</table>";
-  return res;
 }
 
 export async function load_events() {
@@ -163,6 +147,7 @@ interface Run {
   in_working_set: boolean;
   in_archive?: boolean;
   archive_date?: number;
+  archive_size?: number,
 }
 
 type RunMap = {
@@ -171,7 +156,6 @@ type RunMap = {
 
 export async function load_runs() {
   let events = await load_events();
-  console.log(events);
 
   let runs: RunMap = {};
   //group events by run
@@ -197,6 +181,7 @@ export async function load_runs() {
     } else if (ev.type == "run_archived") {
       runs[ev.run]["in_archive"] = true;
       runs[ev.run]["archive_date"] = ev.timestamp;
+      runs[ev.run]["archive_size"] = ev.size;
     } else if (ev.type == "run_deleted_from_archive") {
       runs[ev.run]["in_archive"] = false;
     }
@@ -215,10 +200,50 @@ export async function load_workingdir_runs() {
   }
   return workingdir_runs;
 }
+export async function load_archived_runs () {
+  let runs = await load_runs();
+  //filter to those with in_working_set
+  let workingdir_runs = [];
+  for (let run_name in runs) {
+    if (runs[run_name]["in_archive"] == true) {
+      workingdir_runs.push(runs[run_name]);
+    }
+  }
+  return workingdir_runs;
+}
+
 
 export async function hash_string(message: string): string {
   const encoder = new TextEncoder();
   const data = encoder.encode(message);
   const hash = await crypto.subtle.digest("SHA-256", data);
   return hash;
+}
+
+export async function pending_archivals() {
+  let open_tasks = [];
+  let tasks = await load_tasks();
+  for (let task of tasks) {
+    if (
+      task["type"] == "archive_run" &&
+      (task["status"] == "open" || task["status"] == "processing")
+    ) {
+      open_tasks.push(task);
+    }
+  }
+  return open_tasks;
+}
+
+export async function pending_restores() {
+  let open_tasks = [];
+  let tasks = await load_tasks();
+  for (let task of tasks) {
+    if (
+      task["type"] == "restore_run" &&
+      (task["status"] == "open" || task["status"] == "processing")
+    ) {
+      open_tasks.push(task);
+    }
+  }
+  return open_tasks;
 }

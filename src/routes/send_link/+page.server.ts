@@ -1,5 +1,5 @@
 import { fail } from "@sveltejs/kit";
-import * as EmailValidator from 'email-validator';
+import * as EmailValidator from "email-validator";
 
 import { add_task, load_tasks, load_workingdir_runs } from "$lib/util";
 
@@ -16,9 +16,8 @@ export async function load() {
   }
   let runs = await load_workingdir_runs();
   runs.sort((a, b) => {
-	  a["name"].localeCompare(b["name"]);
+    a["name"].localeCompare(b["name"]);
   });
-
 
   return {
     runs,
@@ -41,25 +40,27 @@ export const actions = {
       if (!found) {
         throw new Error("Run not found");
       }
-      if (data.get("receivers").trim().length == 0) {
-        throw new Error("Receivers was empty");
-      }
-      if (data.get("receivers").indexOf("@") == -1) {
+      if (
+        (data.get("receivers").trim().length > 0) &&
+        data.get("receivers").indexOf("@") == -1
+      ) {
         throw new Error("Receivers did not contain an @");
       }
-	  let individuals = data.get("receivers").split("\n");
-	  let receveivers = [];
-	  for (let individual of individuals) {
-		  individual = individual.trim();
-		  if (!EmailValidator.validate(individual)) {
-			  throw new Error("Invalid email address: '" + individual + "'");
-		  }
-		  receveivers.push(individual);
-	  }
+      let individuals = data.get("receivers").split("\n");
+      let receveivers = [];
+      for (let individual of individuals) {
+        individual = individual.trim();
+        if (individual.length != 0) {
+          if (!EmailValidator.validate(individual)) {
+            throw new Error("Invalid email address: '" + individual + "'");
+          }
+          receveivers.push(individual);
+        }
+      }
       add_task("provide_download_link", {
         "run": data.get("run"),
         "receivers": receveivers,
-		user: locals.user,
+        user: locals.user,
       });
     } catch (error) {
       return fail(422, {

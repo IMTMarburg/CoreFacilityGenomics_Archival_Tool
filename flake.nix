@@ -36,7 +36,7 @@
 
           default = pkgs.writeShellApplication {
             name = packageJSON.name;
-            runtimeInputs = [site-src pkgs.nodejs];
+            runtimeInputs = [site-src pkgs.nodejs pkgs.rage ];
             text = ''
               node ${site-src}/libexec/${packageJSON.name}/deps/${packageJSON.name}/build
             '';
@@ -44,7 +44,7 @@
         };
 
         devShell = pkgs.mkShell {
-          buildInputs = [pkgs.yarn pkgs.nodejs];
+          buildInputs = [pkgs.yarn pkgs.nodejs pkgs.rage ];
           shellHook = ''
             export PATH=$PATH:$(pwd)/node_modules/.bin/
           '';
