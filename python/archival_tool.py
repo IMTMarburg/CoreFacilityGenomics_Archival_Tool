@@ -287,6 +287,7 @@ def provide_download_link(task):
                 "status": "done",
                 "filename": output_name,
                 "email_success": email_success.startswith("Mail sent"),
+                "finish_time": int(time.time()),
             },
         )
     except Exception as e:
@@ -375,7 +376,13 @@ def delete_run(task):
     shutil.copytree(source, target, dirs_exist_ok=True)
     shutil.rmtree(source)
     add_event({"type": "run_deleted_from_working_set", "run": task["run"]})
-    update_task(task, {"status": "done"})
+    update_task(
+        task,
+        {
+            "status": "done",
+            "finish_time": int(time.time()),
+        },
+    )
 
 
 def archive_run(task):
@@ -411,7 +418,7 @@ def unarchive_run(task):
                 )
                 return
             decrypt_and_untar(source, target, key)
-            update_task(task, {"status": "done", "restore_date": int(time.time())})
+            update_task(task, {"status": "done", "finish_time": int(time.time())})
             return
     raise ValueError("could not find archive event")
     update_task(task, {"status": "failed", "reason": "could not find archive event"})
@@ -430,7 +437,13 @@ for task in get_open_tasks():
         archive_run(task)
         if task.get("delete_after_archive", False):
             delete_run(task)
-        update_task(task, {"status": "done"})
+        update_task(
+            task,
+            {
+                "status": "done",
+                "finish_time": int(time.time()),
+            },
+        )
     elif task["type"] == "restore_run":
         update_task(task, {"status": "processing"})
         unarchive_run(task)

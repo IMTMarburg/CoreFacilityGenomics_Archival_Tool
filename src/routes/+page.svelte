@@ -29,8 +29,7 @@
 </ul>
 <h2>Inspection</h2>
 <ul>
-  <li><a href="/tasks">View task status</a></li>
-  <li><a href="/runs">View Run status</a></li>
+  <li><a href="/runs">Run status</a></li>
+  <li><a href="/tasks">Task status</a></li>
   <li><a href="/events">Event log</a></li>
-  <li><a href="/accounting">Accounting</a></li>
 </ul>
