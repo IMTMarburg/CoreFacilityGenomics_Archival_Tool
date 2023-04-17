@@ -387,6 +387,7 @@ def delete_run(task):
 
 def archive_run(task):
     source = find_run(task["run"])
+    source_folder = str(source.relative_to(working_dir))
     target = archived_dir / (safe_name(task["run"]) + ".tar.gz.age")
     key, size = tar_and_encrypt(source, target)
     add_event(
@@ -394,6 +395,7 @@ def archive_run(task):
             "type": "run_archived",
             "run": task["run"],
             "archive_date": int(time.time()),
+            "source_folder": source_folder,
             "filename": target.name,
             "size": size,
             "key": key,
@@ -407,7 +409,8 @@ def unarchive_run(task):
         if ev["type"] == "run_archived" and ev["run"] == task["run"]:
             source = ev["filename"]
             key = ev["key"]
-            target = working_dir / task["run"]
+            target = working_dir / task["source_folder"]
+            target.parent.mkdir(exist_ok=True, parents=True)
             if target.exists():
                 update_task(
                     task,
