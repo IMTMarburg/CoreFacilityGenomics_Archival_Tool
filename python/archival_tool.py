@@ -327,17 +327,25 @@ def extract_american_date_and_convert_to_unix_timestamp(input_str):
 
     if not date_match:
         print("no match in", input_str)
+        return extract_american_date_and_convert_to_unix_timestamp_format2(input_str)
         return None
 
     # Extract the date string from the regex match
     date_str = date_match.group(0)
-
     # Parse the date string into a datetime object
     date_obj = datetime.datetime.strptime(date_str, "%m/%d/%Y %I:%M:%S %p")
-
     # Convert the datetime object to a Unix timestamp
     timestamp = int(time.mktime(date_obj.timetuple()))
+    return timestamp
 
+
+def extract_american_date_and_convert_to_unix_timestamp_format2(input_str):
+    # parse "11/27/2020,07:26:21.901,Illumina RTA 1.18.54"
+    date_match = re.search(
+        r"\d{1,2}/\d{1,2}/\d{4},\d{1,2}:\d{2}:\d{2}\.\d{3}", input_str
+    )
+    date_obj = datetime.datetime.strptime(date_match.group(0), "%m/%d/%Y,%H:%M:%S.%f")
+    timestamp = int(time.mktime(date_obj.timetuple()))
     return timestamp
 
 
