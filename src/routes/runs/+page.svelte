@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { base } from "$app/paths";
   import { format_timestamp, load_events, format_date_and_period } from "$lib/util";
   export let data;
 </script>
@@ -21,7 +22,7 @@
       <td>{run.download_count}</td>
       <td>
         {#if run.download_available}
-          <a href="../download/{run.download_name}">Download</a>
+		  <a href="{base}/download/{run.download_name}">Download</a>
         {/if}
       </td>
       <td>{run.in_working_set}</td>

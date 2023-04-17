@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { base } from "$app/paths";
   export let data;
 </script>
 
@@ -21,15 +22,15 @@
 </p>
 <h2>Actions</h2>
 <ul>
-  <li><a href="/send_link">Send download link</a></li>
-  <li><a href="/archive">Archive</a></li>
-  <li><a href="/unarchive">Restore from archive</a></li>
-  <li><a href="/delete">Delete from working</a></li>
-  <li><a href="/mail_template">Change mail template</a></li>
+  <li><a href="{base}/send_link">Send download link</a></li>
+  <li><a href="{base}/archive">Archive</a></li>
+  <li><a href="{base}/unarchive">Restore from archive</a></li>
+  <li><a href="{base}/delete">Delete from working</a></li>
+  <li><a href="{base}/mail_template">Change mail template</a></li>
 </ul>
 <h2>Inspection</h2>
 <ul>
-  <li><a href="/runs">Run status</a></li>
-  <li><a href="/tasks">Task status</a></li>
-  <li><a href="/events">Event log</a></li>
+  <li><a href="{base}/runs">Run status</a></li>
+  <li><a href="{base}/tasks">Task status</a></li>
+  <li><a href="{base}/events">Event log</a></li>
 </ul>
