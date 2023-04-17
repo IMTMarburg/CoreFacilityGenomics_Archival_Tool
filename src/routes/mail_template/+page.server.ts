@@ -31,7 +31,7 @@ export async function load() {
   };
 }
 export const actions = {
-  change: async ({ cookies, request }) => {
+  change: async ({ cookies, request, locals }) => {
     const form_data = await request.formData();
     try {
       let template = form_data.get("template");
@@ -43,7 +43,7 @@ export const actions = {
         await save_template(template);
         await add_event("template_changed", {
           "old_template": old_template,
-        });
+        }, locals.user);
 
 	  return {success: "Saved"};
       } else {
