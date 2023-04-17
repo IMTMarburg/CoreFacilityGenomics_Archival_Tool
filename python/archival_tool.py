@@ -327,17 +327,25 @@ def extract_american_date_and_convert_to_unix_timestamp(input_str):
 
     if not date_match:
         print("no match in", input_str)
+        return extract_american_date_and_convert_to_unix_timestamp_format2(input_str)
         return None
 
     # Extract the date string from the regex match
     date_str = date_match.group(0)
-
     # Parse the date string into a datetime object
     date_obj = datetime.datetime.strptime(date_str, "%m/%d/%Y %I:%M:%S %p")
-
     # Convert the datetime object to a Unix timestamp
     timestamp = int(time.mktime(date_obj.timetuple()))
+    return timestamp
 
+
+def extract_american_date_and_convert_to_unix_timestamp_format2(input_str):
+    # parse "11/27/2020,07:26:21.901,Illumina RTA 1.18.54"
+    date_match = re.search(
+        r"\d{1,2}/\d{1,2}/\d{4},\d{1,2}:\d{2}:\d{2}\.\d{3}", input_str
+    )
+    date_obj = datetime.datetime.strptime(date_match.group(0), "%m/%d/%Y,%H:%M:%S.%f")
+    timestamp = int(time.mktime(date_obj.timetuple()))
     return timestamp
 
 
@@ -387,6 +395,7 @@ def delete_run(task):
 
 def archive_run(task):
     source = find_run(task["run"])
+    source_folder = str(source.relative_to(working_dir))
     target = archived_dir / (safe_name(task["run"]) + ".tar.gz.age")
     key, size = tar_and_encrypt(source, target)
     add_event(
@@ -394,6 +403,7 @@ def archive_run(task):
             "type": "run_archived",
             "run": task["run"],
             "archive_date": int(time.time()),
+            "source_folder": source_folder,
             "filename": target.name,
             "size": size,
             "key": key,
@@ -407,7 +417,8 @@ def unarchive_run(task):
         if ev["type"] == "run_archived" and ev["run"] == task["run"]:
             source = ev["filename"]
             key = ev["key"]
-            target = working_dir / task["run"]
+            target = working_dir / task["source_folder"]
+            target.parent.mkdir(exist_ok=True, parents=True)
             if target.exists():
                 update_task(
                     task,
