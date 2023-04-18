@@ -27,6 +27,7 @@
   <li><a href="{base}/unarchive">Restore from archive</a></li>
   <li><a href="{base}/delete">Delete from working</a></li>
   <li><a href="{base}/mail_template">Change mail template</a></li>
+  <li><a href="{base}/remove_from_archive">Delete from archive</a></li>
 </ul>
 <h2>Inspection</h2>
 <ul>

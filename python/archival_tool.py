@@ -416,6 +416,9 @@ def archive_run(task):
     source_folder = str(source.relative_to(working_dir))
     target = archived_dir / (safe_name(task["run"]) + ".tar.zstd.age")
     key, size = tar_and_encrypt(source, target)
+    today = datetime.date.today()
+    end_date = today.replace(year=today.year + 10, day=today.day + 1)
+    end_timestamp = int(time.mktime(end_date.timetuple()))
     add_event(
         {
             "type": "run_archived",
@@ -425,6 +428,7 @@ def archive_run(task):
             "filename": target.name,
             "size": size,
             "key": key,
+            "archive_end_date": end_timestamp
         }
     )
 
@@ -449,8 +453,24 @@ def unarchive_run(task):
             decrypt_and_untar(source, target, key)
             update_task(task, {"status": "done", "finish_time": int(time.time())})
             return
-    raise ValueError("could not find archive event")
     update_task(task, {"status": "failed", "reason": "could not find archive event"})
+    raise ValueError("could not find archive event")
+
+
+def find_archive(run):
+    events = load_events()
+    for ev in reversed(events):
+        if ev["type"] == "run_archived" and ev["run"] == run:
+            return ev["filename"]
+
+
+def delete_from_archive(task):
+    target = archived_dir / find_archive(task["run"])
+    target.unlink()
+    add_event({"type": "run_deleted_from_archive", 
+               "run": task["run"],
+               })
+    update_task(task, {"status": "done"})
 
 
 for task in get_open_tasks():
@@ -476,6 +496,10 @@ for task in get_open_tasks():
     elif task["type"] == "restore_run":
         update_task(task, {"status": "processing"})
         unarchive_run(task)
+    elif task['type'] == "remove_from_archive":
+        update_task(task, {"status": "processing"})
+        delete_from_archive(task)
+
 
 cleanup_downloads()
 discover_runs()

@@ -512,3 +512,21 @@ blockquote footer {
 input[type="submit"].danger {
 	background-color:darkred;
 }
+input[type="submit"].danger {
+	background-color:darkred;
+}
+
+h1.danger {
+	background-color:darkred;
+	color:white;
+	padding-left:.5em;
+	border-radius:1em;
+
+}
+
+input[type="submit"].small {
+	padding:.25em;
+	padding-top:0;
+	padding-bottom:0;
+	margin-top:0px;
+}

@@ -1,6 +1,10 @@
 <script lang="ts">
   import { base } from "$app/paths";
-  import { format_timestamp, load_events, format_date_and_period } from "$lib/util";
+  import {
+    format_timestamp,
+    load_events,
+    format_date_and_period,
+  } from "$lib/util";
   export let data;
 </script>
 
@@ -13,7 +17,9 @@
     <th>Current download link?</th>
     <th>In working set?</th>
     <th>Archive date</th>
+    <th>Archive end date</th>
     <th>Archive size (GB)</th>
+    <th>In archive</th>
   </tr>
   {#each Object.values(data.runs) as run}
     <tr>
@@ -22,16 +28,24 @@
       <td>{run.download_count}</td>
       <td>
         {#if run.download_available}
-		  <a href="{base}/download/{run.download_name}">Download</a>
+          <a href="{base}/download/{run.download_name}">Download</a>
         {/if}
       </td>
-      <td>{run.in_working_set}</td>
-      <td>{run.archive_date ? format_date_and_period(run.archive_date) : "-"}</td>
+      <td>{#if run.in_working_set}yes{:else}no{/if}</td>
+      <td
+        >{run.archive_date ? format_date_and_period(run.archive_date) : "-"}</td
+      >
+      <td
+        >{run.archive_end_date
+          ? format_date_and_period(run.archive_end_date)
+          : "-"}
+      </td>
       <td
         >{#if run.archive_size}
           {Math.round(run.archive_size / 1024 / 1024 / 1024, 2)}
         {/if}
       </td>
+	  <td>{#if run.in_archive}yes{:else}no{/if}</td>
     </tr>
   {/each}
 </table>

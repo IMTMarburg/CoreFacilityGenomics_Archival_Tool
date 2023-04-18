@@ -44,12 +44,20 @@ export function format_timestamp(unix_timestamp: number) {
 function human_since(days: number) {
   //< 365 days => x days
   //afterwards y years and x days
+let suffix = "";
+  if (days < 0) {
+	  suffix = "in the future"
+	  days = days * -1;
+  }
+  else {
+	  suffix = "ago";
+  }
   if (days < 365) {
-    return `${days} days`;
+    return `${days} days ${suffix}`;
   } else {
     const years = Math.floor(days / 365);
     const rmdays = days % 365;
-    return `${years} years and ${rmdays} days`;
+    return `${years} years and ${rmdays} days ${suffix}`;
   }
 }
 
@@ -200,7 +208,8 @@ export async function load_runs() {
       runs[ev.run]["in_working_set"] = true;
     } else if (ev.type == "run_archived") {
       runs[ev.run]["in_archive"] = true;
-      runs[ev.run]["archive_date"] = ev.timestamp;
+      runs[ev.run]["archive_date"] = ev.archive_date;
+      runs[ev.run]["archive_end_date"] = ev.archive_end_date;
       runs[ev.run]["archive_size"] = ev.size;
     } else if (ev.type == "run_deleted_from_archive") {
       runs[ev.run]["in_archive"] = false;
@@ -252,6 +261,21 @@ export async function pending_archivals() {
   }
   return open_tasks;
 }
+
+export async function pending_archive_deletions() {
+  let open_tasks = [];
+  let tasks = await load_tasks();
+  for (let task of tasks) {
+    if (
+      task["type"] == "remove_from_archive" &&
+      (task["status"] == "open" || task["status"] == "processing")
+    ) {
+      open_tasks.push(task);
+    }
+  }
+  return open_tasks;
+}
+
 
 export async function pending_restores() {
   let open_tasks = [];
