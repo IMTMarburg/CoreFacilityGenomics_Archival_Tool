@@ -130,7 +130,9 @@ def tar_output_folder(input_folder, output_file, exclude_data_folder=False):
     # tar,b tu execlude the Data folder.
     cmd = [
         "tar",
-        "-czf",
+        "-I",
+        'zstd', 
+        "-cf",
         str(output_file.absolute()),
         str(input_folder.name),
     ]
@@ -150,7 +152,7 @@ def tar_and_encrypt(input_folder, output_file):
     # look like # public key: age13a3nlgjva9474uutesr2xqwtk2zcwcvdw4jdw4zkphz37jhry93qsctkys
     public_key = pub_key[pub_key.find(":") + 1 :].strip()
     # print('public key is', repr(public_key))
-    tar_cmd = ["tar", "--exclude", "Data", "-cz", str(input_folder.name)]
+    tar_cmd = ["tar", "--exclude", "Data", "--use-compress-program", 'zstd -19', "-c", str(input_folder.name)]
     rage_cmd = ["rage", "-e", "-", "-o", str(output_file.absolute()), "-r", public_key]
     process_tar = subprocess.Popen(
         tar_cmd, cwd=input_folder.parent, stdout=subprocess.PIPE
@@ -186,7 +188,7 @@ def decrypt_and_untar(encrypted_file, output_folder, key):
                 "-o",
                 "-",
             ]
-            tar_cmd = ["tar", "xz"]
+            tar_cmd = ["tar", "--zstd", "x"]
             print(rage_cmd)
             print(tar_cmd)
             process_rage = subprocess.Popen(rage_cmd, stdout=subprocess.PIPE)
@@ -254,7 +256,7 @@ def provide_download_link(task):
         + safe_name(task["run"])
         + "_"
         + random_text(5)
-        + ".tar.gz"
+        + ".tar.zstd"
     )
     last_provided_download = find_last_provided_download(task["run"])
     try:
@@ -296,7 +298,7 @@ def provide_download_link(task):
 
 
 def cleanup_downloads():
-    for filename in download_dir.glob("*.tar.gz"):
+    for filename in download_dir.glob("*.tar.zstd"):
         match = re.match(
             r"(\d\d\d\d-\d\d-\d\d_\d\d-\d\d-\d\d)_(.*)\.tar\.gz", filename.name
         )
@@ -326,9 +328,8 @@ def extract_american_date_and_convert_to_unix_timestamp(input_str):
     )
 
     if not date_match:
-        print("no match in", input_str)
+        #print("no match in", input_str)
         return extract_american_date_and_convert_to_unix_timestamp_format2(input_str)
-        return None
 
     # Extract the date string from the regex match
     date_str = date_match.group(0)
@@ -344,6 +345,9 @@ def extract_american_date_and_convert_to_unix_timestamp_format2(input_str):
     date_match = re.search(
         r"\d{1,2}/\d{1,2}/\d{4},\d{1,2}:\d{2}:\d{2}\.\d{3}", input_str
     )
+    if not date_match:
+        print("no match for either date format in", input_str)
+        return None
     date_obj = datetime.datetime.strptime(date_match.group(0), "%m/%d/%Y,%H:%M:%S.%f")
     timestamp = int(time.mktime(date_obj.timetuple()))
     return timestamp
@@ -396,7 +400,7 @@ def delete_run(task):
 def archive_run(task):
     source = find_run(task["run"])
     source_folder = str(source.relative_to(working_dir))
-    target = archived_dir / (safe_name(task["run"]) + ".tar.gz.age")
+    target = archived_dir / (safe_name(task["run"]) + ".tar.zstd.age")
     key, size = tar_and_encrypt(source, target)
     add_event(
         {
