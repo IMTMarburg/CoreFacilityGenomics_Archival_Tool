@@ -300,7 +300,7 @@ def provide_download_link(task):
 def cleanup_downloads():
     for filename in download_dir.glob("*.tar.zstd"):
         match = re.match(
-            r"(\d\d\d\d-\d\d-\d\d_\d\d-\d\d-\d\d)_(.*)\.tar\.gz", filename.name
+            r"(\d\d\d\d-\d\d-\d\d_\d\d-\d\d-\d\d)_(.*)\.tar\.zstd", filename.name
         )
         str_date = match.group(1)
         run = match.group(2)
