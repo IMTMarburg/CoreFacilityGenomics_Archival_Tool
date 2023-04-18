@@ -1,6 +1,6 @@
 import fs from "fs";
 import process from "process";
-import { add_event } from "$lib/util";
+import { add_event, load_events } from "$lib/util";
 
 // ----- GET -----
 /** @type {import('./$types').RequestHandler} */
@@ -15,7 +15,7 @@ export async function GET({ request, params }) {
     //filenames look like 2023-04-14_10-16-29_oldest_run_ever_hsenl.tar.gz
     //run is after date, and before final _
     let match = filename.match(
-      /(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})_(.*)_[^_]+\.tar\.gz/,
+      /(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})_(.*)_[^_]+\.tar\.zstd/,
     );
     if (match == null) {
       throw new Error("failed to parse filename");
@@ -26,6 +26,18 @@ export async function GET({ request, params }) {
     let path = `${download_dir}/${filename}`;
     //check if path exists
     if (!fs.existsSync(path)) {
+      let events = await load_events();
+      for (let event of events) {
+        if (
+          event["filename"] == filename &&
+          event["type"] == "run_download_removed"
+        ) {
+          throw new Error(
+            "Your download link has expired. Contact the core facility to possibly get a new one.",
+          );
+        }
+      }
+
       throw new Error(
         "file not found. Possibly, your download link has expired. Contact the facility for a new one.",
       );

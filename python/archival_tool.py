@@ -131,7 +131,7 @@ def tar_output_folder(input_folder, output_file, exclude_data_folder=False):
     cmd = [
         "tar",
         "-I",
-        'zstd', 
+        "zstd",
         "-cf",
         str(output_file.absolute()),
         str(input_folder.name),
@@ -152,7 +152,15 @@ def tar_and_encrypt(input_folder, output_file):
     # look like # public key: age13a3nlgjva9474uutesr2xqwtk2zcwcvdw4jdw4zkphz37jhry93qsctkys
     public_key = pub_key[pub_key.find(":") + 1 :].strip()
     # print('public key is', repr(public_key))
-    tar_cmd = ["tar", "--exclude", "Data", "--use-compress-program", 'zstd -19', "-c", str(input_folder.name)]
+    tar_cmd = [
+        "tar",
+        "--exclude",
+        "Data",
+        "--use-compress-program",
+        "zstd -19",
+        "-c",
+        str(input_folder.name),
+    ]
     rage_cmd = ["rage", "-e", "-", "-o", str(output_file.absolute()), "-r", public_key]
     process_tar = subprocess.Popen(
         tar_cmd, cwd=input_folder.parent, stdout=subprocess.PIPE
@@ -176,7 +184,7 @@ def decrypt_and_untar(encrypted_file, output_folder, key):
     output_folder = Path(output_folder)
     output_folder.mkdir(exist_ok=True)
     try:
-        with open("key", "wb") as tf:
+        with tempfile.NamedTemporaryFile(suffix="key", mode="wb") as tf:
             tf.write(key.encode("utf-8"))
             tf.flush()
             rage_cmd = [
@@ -188,7 +196,7 @@ def decrypt_and_untar(encrypted_file, output_folder, key):
                 "-o",
                 "-",
             ]
-            tar_cmd = ["tar", "--zstd", "x"]
+            tar_cmd = ["tar", "--zstd", "-x"]
             print(rage_cmd)
             print(tar_cmd)
             process_rage = subprocess.Popen(rage_cmd, stdout=subprocess.PIPE)
@@ -281,6 +289,7 @@ def provide_download_link(task):
                 "finish_time": int(time.time()),
                 "details": {"receivers": task["receivers"]},
                 "email_success": email_success,
+                "invalid_after_timestamp": task["invalid_after"],
             }
         )
         update_task(
@@ -298,27 +307,32 @@ def provide_download_link(task):
 
 
 def cleanup_downloads():
-    for filename in download_dir.glob("*.tar.zstd"):
-        match = re.match(
-            r"(\d\d\d\d-\d\d-\d\d_\d\d-\d\d-\d\d)_(.*)\.tar\.zstd", filename.name
-        )
-        str_date = match.group(1)
-        run = match.group(2)
-        date = datetime.datetime.strptime(str_date, "%Y-%m-%d_%H-%M-%S")
-        delta = datetime.datetime.now() - date
-        if delta.total_seconds() > download_cleanup_timeout_seconds:
-            print("Delete download", filename)
-            filename.unlink()
-            add_event(
-                {
-                    "type": "run_download_removed",
-                    "filename": str(filename.name),
-                    "run": run,
-                }
-            )
-        else:
-            # print('keep download', filename)
-            pass
+    invalidation_dates = {}
+    for event in load_events():
+        if event["type"] == "run_download_provided":
+            invalidation_dates[event["filename"]] = event
+        if event["type"] == "run_download_removed":
+            try:
+                del invalidation_dates[event["filename"]]
+            except KeyError:
+                pass
+    now = time.time()
+    for filename in download_dir.glob("*"):
+        if filename.is_file():
+            if filename.name in invalidation_dates:
+                if invalidation_dates[filename.name]["invalid_after_timestamp"] < now:
+                    print("Delete download", filename)
+                    filename.unlink()
+                    add_event(
+                        {
+                            "type": "run_download_removed",
+                            "filename": str(filename.name),
+                            "run": invalidation_dates[filename.name]["run"],
+                        }
+                    )
+                else:
+                    # print('keep download', filename)
+                    pass
 
 
 def extract_american_date_and_convert_to_unix_timestamp(input_str):
@@ -328,7 +342,7 @@ def extract_american_date_and_convert_to_unix_timestamp(input_str):
     )
 
     if not date_match:
-        #print("no match in", input_str)
+        # print("no match in", input_str)
         return extract_american_date_and_convert_to_unix_timestamp_format2(input_str)
 
     # Extract the date string from the regex match
@@ -421,7 +435,7 @@ def unarchive_run(task):
         if ev["type"] == "run_archived" and ev["run"] == task["run"]:
             source = ev["filename"]
             key = ev["key"]
-            target = working_dir / task["source_folder"]
+            target = working_dir / ev["source_folder"]
             target.parent.mkdir(exist_ok=True, parents=True)
             if target.exists():
                 update_task(

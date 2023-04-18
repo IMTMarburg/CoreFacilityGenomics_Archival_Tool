@@ -1,7 +1,13 @@
 import { fail } from "@sveltejs/kit";
 import * as EmailValidator from "email-validator";
 
-import { add_task, load_tasks, load_workingdir_runs } from "$lib/util";
+import {
+  add_task,
+  isodate_to_timestamp,
+  load_tasks,
+  load_workingdir_runs,
+  load_events,
+} from "$lib/util";
 
 export async function load() {
   let last_requests = [];
@@ -12,6 +18,17 @@ export async function load() {
     }
     if (tasks[ii].type == "provide_download_link") {
       last_requests.push(tasks[ii]);
+    }
+  }
+  let events = await load_events();
+  for (let ii = events.length - 1; ii >= 0; ii--) {
+    if (events[ii].type == "run_download_removed") {
+      console.log("bingo");
+      for (let jj = last_requests.length - 1; jj >= 0; jj--) {
+        if (last_requests[jj].filename == events[ii].filename) {
+          last_requests[jj].filename = '(expired)';
+        }
+      }
     }
   }
   let runs = await load_workingdir_runs();
@@ -30,6 +47,9 @@ export const actions = {
     const data = await request.formData();
     try {
       let runs = await load_workingdir_runs();
+      if (data.get("run") == null) {
+        throw new Error("No run selected");
+      }
       let found = false;
       for (let run of runs) {
         if (run.name == data.get("run")) {
@@ -47,21 +67,24 @@ export const actions = {
         throw new Error("Receivers did not contain an @");
       }
       let individuals = data.get("receivers").split("\n");
-      let receveivers = [];
+      let receivers = [];
       for (let individual of individuals) {
         individual = individual.trim();
         if (individual.length != 0) {
           if (!EmailValidator.validate(individual)) {
             throw new Error("Invalid email address: '" + individual + "'");
           }
-          receveivers.push(individual);
+          receivers.push(individual);
         }
       }
+
+      let invalidation_date = isodate_to_timestamp(data.get("date"));
+
       add_task("provide_download_link", {
         "run": data.get("run"),
-        "receivers": receveivers,
-        user: locals.user,
-      });
+        "receivers": receivers,
+        "invalid_after": invalidation_date + 24 * 3600,
+      }, locals.user);
     } catch (error) {
       return fail(422, {
         run: data.get("run"),

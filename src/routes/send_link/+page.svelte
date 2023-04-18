@@ -1,6 +1,11 @@
 <script lang="ts">
   import { base } from "$app/paths";
-  import { format_timestamp, event_details, hash_string } from "$lib/util";
+  import {
+    iso_date,
+    format_timestamp,
+    event_details,
+    hash_string,
+  } from "$lib/util";
   import * as EmailValidator from "email-validator";
   export let data;
   export let form;
@@ -13,6 +18,12 @@
     return (
       name.replace(/[^a-zA-Z0-9]/g, "_") + hash_string(name).then().catch()
     );
+  }
+
+  function plus_days(date: Date, days: number) {
+    const new_date = new Date(date);
+    new_date.setDate(new_date.getDate() + days);
+    return new_date;
   }
 </script>
 
@@ -32,11 +43,26 @@
 
   <label for="receivers">Receivers</label>
   (one per line, leave empty for 'no email send')
-  <textarea name="receivers" id="receivers" value={form?.receivers ?? ""} />
+  <textarea
+    name="receivers"
+    id="receivers"
+    value={form?.receivers ?? ""}
+    rows="3"
+  />
+  <label for="date">Valid until</label>
+  <!-- add date input with date 90 days in the future -->
+  <input
+    type="date"
+    name="date"
+    id="date"
+    value={form?.date ?? iso_date(plus_days(new Date(), 90))}
+	min={iso_date(plus_days(new Date(), 1))}
+    required
+  /> (default: 90 days)
   <br />
-  Include:
+  <label> Run to include </label>
   {#if data.runs.length == 0}
-    No runs currently in working set.
+	<p>No runs currently in working set.</p>
   {:else}
     <ul>
       {#each data.runs as run}
@@ -52,8 +78,8 @@
         </li>
       {/each}
     </ul>
-  {/if}
   <input type="submit" value="Add send task" />
+  {/if}
 </form>
 
 <h2>Last requested links</h2>
@@ -84,7 +110,9 @@
           {/if}
         </td>
         <td>
-          {#if task.filename}
+          {#if task.filename == "(expired)"}
+			(expired)
+          {:else if task.filename}
             <a href="{base}/download/{task.filename}">Download</a>
           {:else}
             -

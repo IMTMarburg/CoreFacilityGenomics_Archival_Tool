@@ -3,6 +3,26 @@ import fs from "fs";
 const { subtle } = globalThis.crypto;
 import { add_styles } from "svelte/internal";
 
+export function iso_date(date: Date) {
+  const isoDate = date.toISOString().split("T")[0];
+  return isoDate;
+}
+
+export function isodate_to_timestamp(iso: string) {
+  //parse iso date YYYY-mm-dd into timestamp
+  let re = /(\d+)-(\d+)-(\d+)/;
+  let match = re.exec(iso);
+  if (match) {
+    let year = parseInt(match[1]);
+    let month = parseInt(match[2]);
+    let day = parseInt(match[3]);
+    let date = new Date(year, month - 1, day);
+    return date.getTime() / 1000;
+  } else {
+    throw new Error("Invalid date format");
+  }
+}
+
 export function iso_date_and_time(input_date: Date) {
   let date = new Date(input_date);
   const isoTime = date.toISOString().split("T")[1].split(".")[0];
@@ -147,7 +167,7 @@ interface Run {
   in_working_set: boolean;
   in_archive?: boolean;
   archive_date?: number;
-  archive_size?: number,
+  archive_size?: number;
 }
 
 type RunMap = {
@@ -200,7 +220,7 @@ export async function load_workingdir_runs() {
   }
   return workingdir_runs;
 }
-export async function load_archived_runs () {
+export async function load_archived_runs() {
   let runs = await load_runs();
   //filter to those with in_working_set
   let workingdir_runs = [];
@@ -211,7 +231,6 @@ export async function load_archived_runs () {
   }
   return workingdir_runs;
 }
-
 
 export async function hash_string(message: string): string {
   const encoder = new TextEncoder();

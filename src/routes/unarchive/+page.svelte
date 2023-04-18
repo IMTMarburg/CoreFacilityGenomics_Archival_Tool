@@ -42,8 +42,8 @@
             <p>
               Run {run.name}
               <br />
-              Finish date: {format_date_and_period(run.run_finish_date)}
-              Archive date: {run.archive_date? format_date_and_period(run.archive_date): ''}
+			  &nbsp; Finish date: {format_date_and_period(run.run_finish_date)}<br />
+              &nbsp; Archive date: {run.archive_date? format_date_and_period(run.archive_date): ''}
             </p></label
           >
         </li>
