@@ -267,7 +267,7 @@ def provide_download_link(task):
         if task["receivers"]:
             try:
                 email = send_email(task["receivers"], output_name)
-                email_success = "Mail sent:\n " + email
+                email_success = "Mail sent:\n" + email
             except Exception as e:
                 email_success = f"Sent failed: {e}"
                 raise

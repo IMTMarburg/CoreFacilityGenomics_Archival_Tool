@@ -39,6 +39,9 @@ export async function load() {
   runs = runs.filter((run) => {
     return named_open_deletions[run.name] == undefined && named_open_archivals[run.name] == undefined;
   });
+  runs.sort((a, b) => {
+    a["name"].localeCompare(b["name"]);
+  });
 
   return {
     runs: runs,
