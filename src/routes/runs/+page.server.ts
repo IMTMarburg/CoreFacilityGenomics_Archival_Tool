@@ -14,7 +14,11 @@ type RunMap = {
 };
 
 export async function load() {
+  let runs = await load_runs();
+  runs.sort((a, b) => {
+    a["name"].localeCompare(b["name"]);
+  });
   return {
-    runs: await load_runs(),
+    runs: runs,
   };
 }
