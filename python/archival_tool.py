@@ -86,12 +86,13 @@ def update_task(task, updates):
 last_event_time = None
 
 
+event_counter = 0
+
+
 def add_event(event):
-    global last_event_time
-    if last_event_time != None:
-        if time.time() - last_event_time < 2:
-            time.sleep(2)
-    filename = event_dir / f"{int(time.time())}_{os.getpid()}.json"
+    global event_counter
+    event_counter += 1
+    filename = event_dir / f"{int(time.time())}_{os.getpid()}_{event_counter}.json"
     event["source"] = "archival_tool.py"
     with open(filename, "w") as f:
         json.dump(event, f, indent=2)
@@ -428,7 +429,7 @@ def archive_run(task):
             "filename": target.name,
             "size": size,
             "key": key,
-            "archive_end_date": end_timestamp
+            "archive_end_date": end_timestamp,
         }
     )
 
@@ -467,9 +468,12 @@ def find_archive(run):
 def delete_from_archive(task):
     target = archived_dir / find_archive(task["run"])
     target.unlink()
-    add_event({"type": "run_deleted_from_archive", 
-               "run": task["run"],
-               })
+    add_event(
+        {
+            "type": "run_deleted_from_archive",
+            "run": task["run"],
+        }
+    )
     update_task(task, {"status": "done"})
 
 
@@ -496,7 +500,7 @@ for task in get_open_tasks():
     elif task["type"] == "restore_run":
         update_task(task, {"status": "processing"})
         unarchive_run(task)
-    elif task['type'] == "remove_from_archive":
+    elif task["type"] == "remove_from_archive":
         update_task(task, {"status": "processing"})
         delete_from_archive(task)
 
