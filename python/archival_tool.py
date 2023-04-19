@@ -12,9 +12,9 @@ import json
 from pathlib import Path
 import os
 
-min_archive_years = 15
+min_archive_years = 0
+minimum_days_to_keep = 90
 minutes_before_starting_deletion = 1
-minimum_days_to_keep = 0
 
 download_dir = Path(os.environ["DOWNLOAD_DIR"])
 working_dir = Path(os.environ["WORKING_DIR"])

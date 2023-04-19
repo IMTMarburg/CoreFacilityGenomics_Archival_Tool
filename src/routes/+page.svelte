@@ -41,10 +41,10 @@
 	<br />
 	Emails are being sent.
 	<br />
-	Minimum time for deletions from working directory has been set to 0 days.
+	Minimum time for deletions from working directory has been set to 90 days.
 	(from RTAComplete.txt) date
 	<br />
-	Minimum time time for deletions from archive has been set to 1 days.
+	Minimum time for deletions from archive (after archiving) has been set to 1 days.
 	<br />
 	Runs are discovered by having a 'RTAComplete.txt' file in the run directory, which must contain an 
 	american formated completion date.
