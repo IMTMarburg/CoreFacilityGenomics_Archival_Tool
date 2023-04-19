@@ -224,7 +224,16 @@ export async function load_runs() {
       runs[ev.run]["in_archive"] = false;
     }
   }
-  return runs;
+//runs is an object, not an array
+  //so we need to sort the keys
+  let run_names = Object.keys(runs);
+  run_names.sort();
+  run_names.reverse();
+  let sorted_runs = {};
+  for (let run_name of run_names) {
+	  sorted_runs[run_name] = runs[run_name];
+  }
+  return sorted_runs;
 }
 
 export async function load_workingdir_runs() {
