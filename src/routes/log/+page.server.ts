@@ -6,7 +6,7 @@ export async function load({ request, locals }) {
   //read the file
   let stdout;
   try {
-    stdout = await fs.promises.readFile(fn, encoding = "utf-8"));
+    stdout = await fs.promises.readFile(fn, encoding = "utf-8");
   } catch (error) {
     stdout = "could not read log file";
   }
