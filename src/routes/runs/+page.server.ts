@@ -19,6 +19,7 @@ export async function load() {
   //so we need to sort the keys
   let run_names = Object.keys(runs);
   run_names.sort();
+  run_names.reverse();
   let sorted_runs = {};
   for (let run_name of run_names) {
 	  sorted_runs[run_name] = runs[run_name];
