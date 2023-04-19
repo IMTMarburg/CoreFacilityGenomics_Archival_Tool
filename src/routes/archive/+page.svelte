@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { format_timestamp, event_details, hash_string } from "$lib/util";
+  import { event_details, hash_string } from "$lib/util";
   import DatePeriod from "$lib/components/DatePeriod.svelte";
   import * as EmailValidator from "email-validator";
   export let data;
@@ -77,7 +77,7 @@
         <td><DatePeriod timestamp={task.run_finish_date} newline={false} /></td>
         <td><DatePeriod timestamp={task.archive_date} newline={false} /></td>
         <td>{task.delete_after_archive ? "Yes" : "No"}</td>
-        <td>{format_timestamp(task.timestamp)}</td>
+		<td><DatePeriod timestamp={task.timestamp} include_time=true /></td>
         <td>{task.status} </td>
       </tr>
     {/each}

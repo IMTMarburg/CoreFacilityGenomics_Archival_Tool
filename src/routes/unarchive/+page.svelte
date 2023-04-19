@@ -1,6 +1,5 @@
 <script lang="ts">
   import {
-    format_timestamp,
     event_details,
     hash_string,
   } from "$lib/util";
@@ -73,7 +72,7 @@
           > <DatePeriod timestamp={task.archive_date} newline={false} />
 		  </td
         >
-        <td>{format_timestamp(task.timestamp)}</td>
+		<td><DatePeriod timestamp={task.timestamp} include_time=true /></td>
         <td>{task.status} </td>
       </tr>
     {/each}

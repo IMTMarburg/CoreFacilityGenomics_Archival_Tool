@@ -1,7 +1,6 @@
 <script lang="ts">
   import { base } from "$app/paths";
   import {
-    format_timestamp,
     load_events,
   } from "$lib/util";
   import DatePeriod from "$lib/components/DatePeriod.svelte";
@@ -24,7 +23,10 @@
   {#each Object.values(data.runs) as run}
     <tr>
       <td>{run.name}</td>
-      <td>{format_timestamp(run.run_finish_date)}</td>
+      <td>
+		<DatePeriod timestamp={run.run_finish_date} />
+
+	  </td>
       <td>{run.download_count}</td>
       <td>
         {#if run.download_available}

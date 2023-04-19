@@ -1,11 +1,7 @@
 <script lang="ts">
   import { base } from "$app/paths";
-  import {
-    iso_date,
-    format_timestamp,
-    event_details,
-    hash_string,
-  } from "$lib/util";
+  import DatePeriod from "$lib/components/DatePeriod.svelte";
+  import { iso_date, event_details, hash_string } from "$lib/util";
   import * as EmailValidator from "email-validator";
   export let data;
   export let form;
@@ -43,27 +39,25 @@
 
   <label> Run to include </label>
   {#if data.runs.length == 0}
-	<p>No runs currently in working set.</p>
+    <p>No runs currently in working set.</p>
   {:else}
-      {#each data.runs as run}
-          <input
-            type="radio"
-            name="run"
-            id="run_{escape_name(run.name)}"
-            value={run.name}
-            bind:group={chosen_run}
-          />
-          <label for="run_{escape_name(run.name)}">{run.name}</label>
-		  <br />
-      {/each}
+    {#each data.runs as run}
+      <input
+        type="radio"
+        name="run"
+        id="run_{escape_name(run.name)}"
+        value={run.name}
+        bind:group={chosen_run}
+      />
+      <label for="run_{escape_name(run.name)}">{run.name}</label>
+      <br />
+    {/each}
   {/if}
   <br />
 
-
-  <label for="date">Valid until
-	<span class="normal">
-		(default: 90 days)
-	</span>
+  <label for="date"
+    >Valid until
+    <span class="normal"> (default: 90 days) </span>
   </label>
 
   <!-- add date input with date 90 days in the future -->
@@ -72,22 +66,20 @@
     name="date"
     id="date"
     value={form?.date ?? iso_date(plus_days(new Date(), 90))}
-	min={iso_date(plus_days(new Date(), 1))}
+    min={iso_date(plus_days(new Date(), 1))}
     required
-  /> 
+  />
   <br />
-  <label for="comment">Comments <span class="normal">(included in email)</span></label>
-  <textarea
-	name="comment"
-	id="comment"
-	value={form?.comment ?? ""}
-	rows="3"
-	/>
+  <label for="comment"
+    >Comments <span class="normal">(included in email)</span></label
+  >
+  <textarea name="comment" id="comment" value={form?.comment ?? ""} rows="3" />
 
-  <label for="receivers">Receivers
-	<span class="normal">
-	(one per line, leave empty for 'no email send')
-	</span>
+  <label for="receivers"
+    >Receivers
+    <span class="normal">
+      (one per line, leave empty for 'no email send')
+    </span>
   </label>
 
   <textarea
@@ -98,7 +90,7 @@
   />
 
   {#if data.runs.length >= 0}
-  <input type="submit" value="Add send task" />
+    <input type="submit" value="Add send task" />
   {/if}
 </form>
 
@@ -117,7 +109,7 @@
     {#each data.last_requests as task}
       <tr>
         <td>{task.run}</td>
-        <td>{format_timestamp(task.timestamp)}</td>
+        <td><DatePeriod timestamp={task.timestamp} include_time="true" /></td>
         <td>{task.status}</td>
         <td
           >{task.receivers}
@@ -131,7 +123,7 @@
         </td>
         <td>
           {#if task.filename == "(expired)"}
-			(expired)
+            (expired)
           {:else if task.filename}
             <a href="{base}/download/{task.filename}">Download</a>
           {:else}
@@ -163,14 +155,15 @@
   }
 
   .normal {
-		font-weight:normal;	
+    font-weight: normal;
   }
 
-  input, textarea {
-	margin-left:1em;
+  input,
+  textarea {
+    margin-left: 1em;
   }
 
-input[type="submit"]{
-	margin-left:0;
+  input[type="submit"] {
+    margin-left: 0;
   }
 </style>

@@ -1,11 +1,10 @@
 <script lang="ts">
-  import { format_timestamp } from "$lib/util";
   export let data;
 
   function describe_task(task) {
     switch (task["type"]) {
       //#case "provide_download_link":
-       // return `Provide download link (${task.run})`;
+      // return `Provide download link (${task.run})`;
       default: {
         if (task["run"]) {
           return `${task["type"]} (${task.run})`;
@@ -30,12 +29,8 @@
     <tr>
       <td>{describe_task(task)}</td>
       <td>{task.status}</td>
-      <td>{format_timestamp(task.timestamp)}</td>
-      <td
-        >{task.finish_time != undefined
-          ? format_timestamp(task.finish_time)
-          : "-"}</td
-      >
+      <td><DatePeriod timestamp={task.timestamp} include_time="true" /></td>
+      <td><DatePeriod timestamp={task.finish_time} include_time="true" /></td>
     </tr>
   {/each}
 </table>

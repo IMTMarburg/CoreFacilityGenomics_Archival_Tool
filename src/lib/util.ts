@@ -112,18 +112,22 @@ async function load_json_log(key: string) {
     if (match) {
       //read the file
       let raw = await fs.promises.readFile(target_dir + "/" + file);
-      let parsed = JSON.parse(raw);
-      let timestamp_int = parseInt(match[1]);
-      let pid_int = parseInt(match[2]);
-      let count_int = 0;
       try {
-        count_int = parseInt(match[3]);
+        let parsed = JSON.parse(raw);
+        let timestamp_int = parseInt(match[1]);
+        let pid_int = parseInt(match[2]);
+        let count_int = 0;
+        try {
+          count_int = parseInt(match[3]);
+        } catch (e) {
+        }
+        parsed["timestamp"] = timestamp_int;
+        parsed["pid"] = pid_int;
+        parsed["count"] = count_int;
+        events.push(parsed);
       } catch (e) {
+        console.log("Error parsing json file " + file, e);
       }
-      parsed["timestamp"] = timestamp_int;
-      parsed["pid"] = pid_int;
-      parsed["count"] = count_int;
-      events.push(parsed);
     }
   }
   //sort by timestamp, then pid
@@ -224,14 +228,14 @@ export async function load_runs() {
       runs[ev.run]["in_archive"] = false;
     }
   }
-//runs is an object, not an array
+  //runs is an object, not an array
   //so we need to sort the keys
   let run_names = Object.keys(runs);
   run_names.sort();
   run_names.reverse();
   let sorted_runs = {};
   for (let run_name of run_names) {
-	  sorted_runs[run_name] = runs[run_name];
+    sorted_runs[run_name] = runs[run_name];
   }
   return sorted_runs;
 }
