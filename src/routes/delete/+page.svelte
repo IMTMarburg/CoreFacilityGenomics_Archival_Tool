@@ -57,7 +57,7 @@
     <input type="submit" value="Delete" class="danger" />
   {/if}
 </form>
-(if you're missing a run, it might be currently being<a href="../archive"
+(if you're missing a run, it might be currently being <a href="../archive"
   >archived</a
 >)
 
@@ -94,6 +94,27 @@
     {/each}
   </table>
 {/if}
+
+<h2>Currently not yet deletable</h2>
+{#each data.non_deletable_runs as run}
+  <p>
+	Run {run.name}
+	<br />
+	Finish date: <DatePeriod timestamp={run.run_finish_date} newline={false} />
+	<br />
+	Archive date: <DatePeriod
+	  timestamp={run.archive_date}
+	  newline={false}
+	  none_text="Not archived"
+	/>
+	<br />
+	Deletable date: <DatePeriod
+	  timestamp={run.earliest_deletion_timestamp}
+	  newline={false}
+	  />
+  </p>
+{/each}
+
 
 <style>
   th,

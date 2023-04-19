@@ -44,13 +44,12 @@ export function format_timestamp(unix_timestamp: number) {
 export function human_since(days: number) {
   //< 365 days => x days
   //afterwards y years and x days
-let suffix = "";
+  let suffix = "";
   if (days < 0) {
-	  suffix = "in the future"
-	  days = days * -1;
-  }
-  else {
-	  suffix = "ago";
+    suffix = "in the future";
+    days = days * -1;
+  } else {
+    suffix = "ago";
   }
   if (days < 365) {
     return `${days} days ${suffix}`;
@@ -116,23 +115,23 @@ async function load_json_log(key: string) {
       let parsed = JSON.parse(raw);
       let timestamp_int = parseInt(match[1]);
       let pid_int = parseInt(match[2]);
-	  let count_int = 0;
-	  try {
-		  count_int = parseInt(match[3]);
-	  } catch (e) {
-	  }
+      let count_int = 0;
+      try {
+        count_int = parseInt(match[3]);
+      } catch (e) {
+      }
       parsed["timestamp"] = timestamp_int;
       parsed["pid"] = pid_int;
-	  parsed['count'] = count_int;
+      parsed["count"] = count_int;
       events.push(parsed);
     }
   }
   //sort by timestamp, then pid
   events.sort(function (a, b) {
     if (a.timestamp == b.timestamp) {
-		if (a.pid == b.pid) {
-			return a.count - b. count
-		}
+      if (a.pid == b.pid) {
+        return a.count - b.count;
+      }
       return a.pid - b.pid;
     }
     return a.timestamp - b.timestamp;
@@ -203,6 +202,7 @@ export async function load_runs() {
         run_finish_date: ev.run_finish_date,
         download_count: 0,
         in_working_set: true,
+        earliest_deletion_timestamp: parseInt(ev.earliest_deletion_timestamp),
       };
     } else if (ev.type == "run_download_provided") {
       runs[ev.run]["download_available"] = true;
@@ -284,7 +284,6 @@ export async function pending_archive_deletions() {
   }
   return open_tasks;
 }
-
 
 export async function pending_restores() {
   let open_tasks = [];

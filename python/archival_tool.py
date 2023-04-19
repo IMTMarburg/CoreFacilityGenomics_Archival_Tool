@@ -12,6 +12,10 @@ import json
 from pathlib import Path
 import os
 
+min_archive_years = 15
+minutes_before_starting_deletion = 1
+minimum_days_to_keep = 0
+
 download_dir = Path(os.environ["DOWNLOAD_DIR"])
 working_dir = Path(os.environ["WORKING_DIR"])
 deleted_dir = Path(os.environ["DELETE_DIR"])
@@ -414,6 +418,7 @@ def discover_runs():
                     "type": "run_discovered",
                     "run": str(run),
                     "run_finish_date": run_finish_date,
+                    "earliest_deletion_timestamp": run_finish_date + minimum_days_to_keep * 24 * 60 * 60,
                 }
             )
         elif run not in current:
@@ -441,7 +446,7 @@ def archive_run(task):
     target = archived_dir / (safe_name(task["run"]) + ".tar.zstd.age")
     key, size = tar_and_encrypt(source, target)
     today = datetime.date.today()
-    end_date = today.replace(year=today.year + 10, day=today.day + 1)
+    end_date = today.replace(year=today.year + min_archive_years, day=today.day + 1)
     end_timestamp = int(time.mktime(end_date.timetuple()))
     add_event(
         {
@@ -501,13 +506,14 @@ def delete_from_archive(task):
 
 
 for task in get_open_tasks():
-    print(task)
+    print('got task', task)
     if task["type"] == "provide_download_link":
         update_task(task, {"status": "processing"})
         provide_download_link(task)
     elif task["type"] == "delete_run":
-        update_task(task, {"status": "processing"})
-        delete_run(task)
+        if task['timestamp'] < time.time() - minutes_before_starting_deletion * 60:
+            update_task(task, {"status": "processing"})
+            delete_run(task)
     elif task["type"] == "archive_run":
         update_task(task, {"status": "processing"})
         archive_run(task)
@@ -524,8 +530,9 @@ for task in get_open_tasks():
         update_task(task, {"status": "processing"})
         unarchive_run(task)
     elif task["type"] == "remove_from_archive":
-        update_task(task, {"status": "processing"})
-        delete_from_archive(task)
+        if task['timestamp'] < time.time() - minutes_before_starting_deletion * 60:
+            update_task(task, {"status": "processing"})
+            delete_from_archive(task)
 
 
 cleanup_downloads()

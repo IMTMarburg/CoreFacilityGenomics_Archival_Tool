@@ -5,6 +5,8 @@ import {
   load_archived_runs,
   load_tasks,
   load_workingdir_runs,
+  pending_archivals,
+  pending_archive_deletions,
   pending_restores,
   update_task,
 } from "$lib/util";
@@ -22,11 +24,18 @@ export async function load() {
     named_working_dir_runs[run["name"]] = true;
   }
 
+  let pending = await pending_archive_deletions();
+  let named_pending_deletions = {};
+  for (let deletion of pending) {
+    named_pending_deletions[deletion["run"]] = true;
+  }
+
   let runs = await load_archived_runs();
   //filter runs to only those that are not in the process of being deleted
   runs = runs.filter((run) => {
     return named_open_tasks[run.name] == undefined &&
-      named_working_dir_runs[run.name] == undefined;
+      named_working_dir_runs[run.name] == undefined &&
+      named_pending_deletions[run.name] == undefined;
   });
 
   return {

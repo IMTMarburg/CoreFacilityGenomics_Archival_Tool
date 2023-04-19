@@ -39,7 +39,8 @@ export async function GET({ request, params }) {
       }
 
       throw new Error(
-        "file not found. Possibly, your download link has expired. Contact the facility for a new one.",
+        "file not found. Possibly, your download link has expired. Contact the facility for a new one."
+		+ path
       );
     }
 

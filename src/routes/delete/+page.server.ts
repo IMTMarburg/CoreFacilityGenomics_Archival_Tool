@@ -31,20 +31,29 @@ export async function load() {
   let open_archivals = await pending_archivals();
   let named_open_archivals = {};
   for (let archival of open_archivals) {
-	named_open_archivals[archival["run"]] = true;
+    named_open_archivals[archival["run"]] = true;
   }
 
   let runs = await load_workingdir_runs();
   //filter runs to only those that are not in the process of being deleted
   runs = runs.filter((run) => {
-    return named_open_deletions[run.name] == undefined && named_open_archivals[run.name] == undefined;
+    return named_open_deletions[run.name] == undefined &&
+      named_open_archivals[run.name] == undefined 
+      //run.earliest_deletion_timestamp < (new Date().getTime() / 1000);
   });
   runs.sort((a, b) => {
     a["name"].localeCompare(b["name"]);
   });
+  let non_deletable = runs.filter((run) => {
+      return run.earliest_deletion_timestamp >= ((new Date().getTime()) / 1000);
+  });
+  let deletable = runs.filter((run) => {
+	  return run.earliest_deletion_timestamp < ((new Date().getTime()) / 1000);
+  });
 
   return {
-    runs: runs,
+    runs: deletable,
+	non_deletable_runs: non_deletable,
     open_deletions: open_deletions,
   };
 }
