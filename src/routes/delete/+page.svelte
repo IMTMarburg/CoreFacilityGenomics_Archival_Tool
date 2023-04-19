@@ -1,10 +1,6 @@
 <script lang="ts">
-  import {
-    format_date_and_period,
-    format_timestamp,
-    event_details,
-    hash_string,
-  } from "$lib/util";
+  import { format_timestamp, event_details, hash_string } from "$lib/util";
+  import DatePeriod from "$lib/components/DatePeriod.svelte";
   import * as EmailValidator from "email-validator";
   export let data;
   export let form;
@@ -43,51 +39,59 @@
             <p>
               Run {run.name}
               <br />
-              Finish date: {format_date_and_period(run.run_finish_date)}
+              Finish date: <DatePeriod
+                timestamp={run.run_finish_date}
+                newline={false}
+              />
               <br />
-              {#if run.archive_date}
-                Archive date: {format_date_and_period(run.archive_date)}
-              {:else}
-                Not archived
-              {/if}
+              Archive date: <DatePeriod
+                timestamp={run.archive_date}
+                newline={false}
+                none_text="Not archived"
+              />
             </p>
           </label>
         </li>
       {/each}
     </ul>
-    <input type="submit" value="Delete" class="danger"/>
+    <input type="submit" value="Delete" class="danger" />
   {/if}
 </form>
-(if you're missing a run, it might be currently being <a href="../archive">archived</a>)
+(if you're missing a run, it might be currently being<a href="../archive"
+  >archived</a
+>)
 
 <h2>Currently pending deletions</h2>
 {#if data.open_deletions.length == 0}
   None
 {:else}
   <table>
-	<tr>
-	  <th>Run</th>
-	  <th>Finish date</th>
-	  <th>Archive date</th>
-	  <th>Request on</th>
-	  <th>Status</th>
-	</tr>
-	{#each data.open_deletions as task}
-	  <tr>
-		<td>{task.run}</td>
-		<td>{format_date_and_period(task.run_finish_date)}</td>
-		<td>{task.archive_date? format_date_and_period(task.archive_date): '-'}</td>
-		<td>{format_timestamp(task.timestamp)}</td>
-		<td>{task.status}
-		{#if task.status == "open"}
-			<form method="POST" action="?/abort">
-			  <input type="hidden" name="run" value={task.run} />
-			  <input type="submit" class="inline_submit" value="Abort" />
-			  </form>
-		{/if}
-		</td>
-	  </tr>
-	{/each}
+    <tr>
+      <th>Run</th>
+      <th>Finish date</th>
+      <th>Archive date</th>
+      <th>Request on</th>
+      <th>Status</th>
+    </tr>
+    {#each data.open_deletions as task}
+      <tr>
+        <td>{task.run}</td>
+        <td><DatePeriod timestamp={task.run_finish_date} newline={false} /></td>
+        <td>
+          <DatePeriod timestamp={task.archive_date} newline={false} />
+        </td>
+        <td>{format_timestamp(task.timestamp)}</td>
+        <td
+          >{task.status}
+          {#if task.status == "open"}
+            <form method="POST" action="?/abort">
+              <input type="hidden" name="run" value={task.run} />
+              <input type="submit" class="inline_submit" value="Abort" />
+            </form>
+          {/if}
+        </td>
+      </tr>
+    {/each}
   </table>
 {/if}
 
@@ -123,10 +127,10 @@
   }
 
   .inline_submit {
-	padding-left:.1em;
-	padding-right:.1em;
-	padding-top:0;
-	padding-bottom:0;
-	display: inline;
+    padding-left: 0.1em;
+    padding-right: 0.1em;
+    padding-top: 0;
+    padding-bottom: 0;
+    display: inline;
   }
 </style>

@@ -41,7 +41,7 @@ export function format_timestamp(unix_timestamp: number) {
   }
 }
 
-function human_since(days: number) {
+export function human_since(days: number) {
   //< 365 days => x days
   //afterwards y years and x days
 let suffix = "";
@@ -108,7 +108,7 @@ async function load_json_log(key: string) {
   let events = [];
   const files = await fs.promises.readdir(target_dir);
   for (const file of files) {
-    let re = /(\d+)_(\d+)\.json/;
+    let re = /(\d+)_(\d+)_?(\d+)?\.json/;
     let match = re.exec(file);
     if (match) {
       //read the file
@@ -116,14 +116,23 @@ async function load_json_log(key: string) {
       let parsed = JSON.parse(raw);
       let timestamp_int = parseInt(match[1]);
       let pid_int = parseInt(match[2]);
+	  let count_int = 0;
+	  try {
+		  count_int = parseInt(match[3]);
+	  } catch (e) {
+	  }
       parsed["timestamp"] = timestamp_int;
       parsed["pid"] = pid_int;
+	  parsed['count'] = count_int;
       events.push(parsed);
     }
   }
   //sort by timestamp, then pid
   events.sort(function (a, b) {
     if (a.timestamp == b.timestamp) {
+		if (a.pid == b.pid) {
+			return a.count - b. count
+		}
       return a.pid - b.pid;
     }
     return a.timestamp - b.timestamp;

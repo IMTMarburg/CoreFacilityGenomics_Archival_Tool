@@ -15,10 +15,15 @@ type RunMap = {
 
 export async function load() {
   let runs = await load_runs();
-  runs.sort((a, b) => {
-    a["name"].localeCompare(b["name"]);
-  });
+  //runs is an object, not an array
+  //so we need to sort the keys
+  let run_names = Object.keys(runs);
+  run_names.sort();
+  let sorted_runs = {};
+  for (let run_name of run_names) {
+	  sorted_runs[run_name] = runs[run_name];
+  }
   return {
-    runs: runs,
+    runs: sorted_runs,
   };
 }

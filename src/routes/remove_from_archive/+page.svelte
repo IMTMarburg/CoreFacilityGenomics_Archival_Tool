@@ -1,10 +1,6 @@
 <script lang="ts">
-  import {
-    format_date_and_period,
-    format_timestamp,
-    event_details,
-    hash_string,
-  } from "$lib/util";
+  import { format_timestamp, event_details, hash_string } from "$lib/util";
+  import DatePeriod from "$lib/components/DatePeriod.svelte";
   import * as EmailValidator from "email-validator";
   export let data;
   export let form;
@@ -27,11 +23,10 @@
   {/if}
 
   {#if data.runs.length == 0}
-	No runs available for removal from archive. <br />
-	Perhaps check 'archive end date'
-    in <a href="{base}/runs">runs</a>?
+    No runs available for removal from archive. <br />
+    Perhaps check 'archive end date' in <a href="{base}/runs">runs</a>?
   {:else}
-  Run to delete:
+    Run to delete:
     <ul class="radio-toolbar">
       {#each data.runs as run}
         <li>
@@ -46,11 +41,19 @@
             <p>
               Run {run.name}
               <br />
-              Finish date: {format_date_and_period(run.run_finish_date)}<br />
-              Archive date: {format_date_and_period(run.archive_date)}<br />
-              Archive end_date: {format_date_and_period(
-                run.archive_end_date
-              )}<br />
+              Finish date: <DatePeriod
+                timestamp={run.run_finish_date}
+                newline={false}
+              /><br />
+              Archive date: <DatePeriod
+                timestamp={run.archive_date}
+                newline={false}
+              /><br />
+              Archive end_date: <DatePeriod
+                timestamp={run.archive_end_date}
+                newline={false}
+              /><br />
+			  Currently in working set: {@html run.in_working_set ? "Yes" : "<b class=danger>No</b>"}
             </p></label
           >
         </li>
@@ -81,15 +84,19 @@
     {#each data.open_tasks as task}
       <tr>
         <td>{task.run}</td>
-        <td>{format_date_and_period(task.run_finish_date)}</td>
-        <td
-          >{task.archive_date
-            ? format_date_and_period(task.archive_date)
-            : "-"}</td
-        >
+        <td><DatePeriod timestamp={task.run_finish_date} /></td>
+        <td>
+          <DatePeriod timestamp={task.archive_date} />
+        </td>
         <td>{task.delete_after_archive ? "Yes" : "No"}</td>
         <td>{format_timestamp(task.timestamp)}</td>
-        <td>{task.status} </td>
+        <td
+          >{task.status}
+          <form method="POST" action="?/abort">
+            <input type="hidden" name="run" value={task.run} />
+            <input type="submit" class="inline_submit" value="Abort" />
+          </form>
+        </td>
       </tr>
     {/each}
   </table>
@@ -132,5 +139,9 @@
     padding-top: 0;
     padding-bottom: 0;
     display: inline;
+  }
+
+  :global(b.danger) {
+	color: red;
   }
 </style>

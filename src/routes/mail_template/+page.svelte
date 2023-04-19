@@ -18,6 +18,7 @@
   <li>%URL% - the link to the download</li>
   <li>%DELETION_DATE% - the date after which the link is no longer valid</li>
   <li>%DAYS% - the number of days this link will stay valid</li>
+  <li>%COMMENT% - the comment from the send-link form</li>
 </ul>
 
 <form method="POST" action="?/change">

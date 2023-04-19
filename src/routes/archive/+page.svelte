@@ -1,10 +1,6 @@
 <script lang="ts">
-  import {
-    format_date_and_period,
-    format_timestamp,
-    event_details,
-    hash_string,
-  } from "$lib/util";
+  import { format_timestamp, event_details, hash_string } from "$lib/util";
+  import DatePeriod from "$lib/components/DatePeriod.svelte";
   import * as EmailValidator from "email-validator";
   export let data;
   export let form;
@@ -43,14 +39,22 @@
             <p>
               Run {run.name}
               <br />
-              Finish date: {format_date_and_period(run.run_finish_date)}
+              Finish date: <DatePeriod
+                timestamp={run.run_finish_date}
+                newline={false}
+              />
             </p></label
           >
         </li>
       {/each}
     </ul>
-    <input type="submit" value="Archive" name="what"/>
-    <input type="submit" value="Archive and Delete" name="what" class="danger"/>
+    <input type="submit" value="Archive" name="what" />
+    <input
+      type="submit"
+      value="Archive and Delete"
+      name="what"
+      class="danger"
+    />
   {/if}
 </form>
 
@@ -70,13 +74,9 @@
     {#each data.open_tasks as task}
       <tr>
         <td>{task.run}</td>
-        <td>{format_date_and_period(task.run_finish_date)}</td>
-        <td
-          >{task.archive_date
-            ? format_date_and_period(task.archive_date)
-            : "-"}</td
-        >
-		<td>{task.delete_after_archive ? "Yes" : "No"}</td>
+        <td><DatePeriod timestamp={run.run_finish_date} newline={false} /></td>
+        <td><DatePeriod timestamp={run.archive_date} newline={false} /></td>
+        <td>{task.delete_after_archive ? "Yes" : "No"}</td>
         <td>{format_timestamp(task.timestamp)}</td>
         <td>{task.status} </td>
       </tr>

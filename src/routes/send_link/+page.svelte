@@ -41,32 +41,11 @@
     <p class="error">{form.error}</p>
   {/if}
 
-  <label for="receivers">Receivers</label>
-  (one per line, leave empty for 'no email send')
-  <textarea
-    name="receivers"
-    id="receivers"
-    value={form?.receivers ?? ""}
-    rows="3"
-  />
-  <label for="date">Valid until</label>
-  <!-- add date input with date 90 days in the future -->
-  <input
-    type="date"
-    name="date"
-    id="date"
-    value={form?.date ?? iso_date(plus_days(new Date(), 90))}
-	min={iso_date(plus_days(new Date(), 1))}
-    required
-  /> (default: 90 days)
-  <br />
   <label> Run to include </label>
   {#if data.runs.length == 0}
 	<p>No runs currently in working set.</p>
   {:else}
-    <ul>
       {#each data.runs as run}
-        <li>
           <input
             type="radio"
             name="run"
@@ -75,9 +54,50 @@
             bind:group={chosen_run}
           />
           <label for="run_{escape_name(run.name)}">{run.name}</label>
-        </li>
+		  <br />
       {/each}
-    </ul>
+  {/if}
+  <br />
+
+
+  <label for="date">Valid until
+	<span class="normal">
+		(default: 90 days)
+	</span>
+  </label>
+
+  <!-- add date input with date 90 days in the future -->
+  <input
+    type="date"
+    name="date"
+    id="date"
+    value={form?.date ?? iso_date(plus_days(new Date(), 90))}
+	min={iso_date(plus_days(new Date(), 1))}
+    required
+  /> 
+  <br />
+  <label for="comment">Comments <span class="normal">(included in email)</span></label>
+  <textarea
+	name="comment"
+	id="comment"
+	value={form?.comment ?? ""}
+	rows="3"
+	/>
+
+  <label for="receivers">Receivers
+	<span class="normal">
+	(one per line, leave empty for 'no email send')
+	</span>
+  </label>
+
+  <textarea
+    name="receivers"
+    id="receivers"
+    value={form?.receivers ?? ""}
+    rows="3"
+  />
+
+  {#if data.runs.length >= 0}
   <input type="submit" value="Add send task" />
   {/if}
 </form>
@@ -140,5 +160,17 @@
 
   .error {
     color: red;
+  }
+
+  .normal {
+		font-weight:normal;	
+  }
+
+  input, textarea {
+	margin-left:1em;
+  }
+
+input[type="submit"]{
+	margin-left:0;
   }
 </style>

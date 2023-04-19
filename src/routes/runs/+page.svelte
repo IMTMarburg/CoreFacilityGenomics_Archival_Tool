@@ -3,8 +3,8 @@
   import {
     format_timestamp,
     load_events,
-    format_date_and_period,
   } from "$lib/util";
+  import DatePeriod from "$lib/components/DatePeriod.svelte";
   export let data;
 </script>
 
@@ -32,13 +32,12 @@
         {/if}
       </td>
       <td>{#if run.in_working_set}yes{:else}no{/if}</td>
+      <td>
+		<DatePeriod timestamp={run.archive_date} />
+  	  </td>
       <td
-        >{run.archive_date ? format_date_and_period(run.archive_date) : "-"}</td
-      >
-      <td
-        >{run.archive_end_date
-          ? format_date_and_period(run.archive_end_date)
-          : "-"}
+        >
+		<DatePeriod timestamp={run.archive_end_date} />
       </td>
       <td
         >{#if run.archive_size}

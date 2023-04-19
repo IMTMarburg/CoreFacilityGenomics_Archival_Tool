@@ -21,7 +21,13 @@ event_dir = data_dir / "events"
 task_dir = data_dir / "tasks"
 secret_file = Path(os.environ["SECRETS_FILE"])
 
-default_template = "Your download is available at %URL%."
+default_template = """
+Your download is available at %URL%.
+
+It will be available until %DELETION_DATE% which is %DAYS% days from now.
+
+Further comments: %COMMENT%
+"""
 
 download_cleanup_timeout_seconds = 3600 * 24 * 31
 
@@ -34,7 +40,7 @@ def load_events():
         events = []
         for filename in event_dir.glob("*.json"):
             try:
-                timestamp, pid = re.match(r"(\d+)_(\d+).json", filename.name).groups()
+                timestamp, pid = re.match(r"(\d+)_(\d+).*\.json", filename.name).groups()
             except:
                 print("invalid filename", filename.name)
                 continue
@@ -234,7 +240,7 @@ def get_template():
         return default_template
 
 
-def send_email(receivers, filename):
+def send_email(receivers, invalidation_timestamp, comment, filename):
     with open(secret_file) as f:
         secrets = json.load(f)
     sender = secrets["mail"]["sender"]
@@ -245,6 +251,18 @@ def send_email(receivers, filename):
     template = get_template()
     url = secrets["mail"]["url"] + filename
     message = template.replace("%URL%", url)
+    invalidation_date = datetime.datetime.fromtimestamp(invalidation_timestamp)
+    message = message.replace(
+        "%DELETION_DATE%", invalidation_date.strftime("%Y-%m-%d")
+    )
+    message = message.replace(
+        "%DAYS%", str((invalidation_date - datetime.datetime.now()).days)
+    )
+    if comment:
+        message = message.replace("%COMMENT%", comment)
+    else:
+        message = message.replace("%COMMENT%", "(no comment provided)")
+
     msg = MIMEText(message)
     msg["Subject"] = "Sequencing run finished"
     msg["From"] = sender
@@ -275,7 +293,12 @@ def provide_download_link(task):
             tar_output_folder(find_run(task["run"]), download_dir / output_name)
         if task["receivers"]:
             try:
-                email = send_email(task["receivers"], output_name)
+                email = send_email(
+                    task["receivers"],
+                    task["invalid_after"],
+                    task["comment"],
+                    output_name,
+                )
                 email_success = "Mail sent:\n" + email
             except Exception as e:
                 email_success = f"Sent failed: {e}"

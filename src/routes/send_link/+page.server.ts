@@ -79,11 +79,13 @@ export const actions = {
       }
 
       let invalidation_date = isodate_to_timestamp(data.get("date"));
+	  let comment = data.get("comment") ?? "";
 
       add_task("provide_download_link", {
         "run": data.get("run"),
         "receivers": receivers,
         "invalid_after": invalidation_date + 24 * 3600,
+		"comment": comment,
       }, locals.user);
     } catch (error) {
       return fail(422, {

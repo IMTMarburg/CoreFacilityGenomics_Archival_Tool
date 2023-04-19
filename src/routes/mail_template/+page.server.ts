@@ -3,7 +3,10 @@ import { fail } from "@sveltejs/kit";
 import fs from "fs";
 import { add_event } from "$lib/util";
 
-const default_template = "Your download is available at %URL%.";
+const default_template = "Your download is available at %URL%.\n\n\
+It will be available until %DELETION_DATE% which is %DAYS% days from now.\n\
+\n\
+Further comments: %COMMENT%";
 
 async function load_template() {
   return await fs.promises.readFile(
