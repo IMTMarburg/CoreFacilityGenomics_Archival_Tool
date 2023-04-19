@@ -35,7 +35,7 @@ export function iso_date_and_time(input_date: Date) {
 export function format_timestamp(unix_timestamp: number) {
   const date = new Date(unix_timestamp * 1000);
   try {
-    return iso_date_and_time(date);
+    return toIsoStringTZO(date, true);
   } catch (e) {
     return unix_timestamp;
   }
@@ -311,3 +311,37 @@ export async function pending_restores() {
   }
   return open_tasks;
 }
+
+export function toIsoStringTZO(date, include_time) {
+    var tzo = -date.getTimezoneOffset();
+    let pad = function (num) {
+      return (num < 10 ? "0" : "") + num;
+    };
+
+    if (include_time) {
+      return (
+        date.getFullYear() +
+        "-" +
+        pad(date.getMonth() + 1) +
+        "-" +
+        pad(date.getDate()) +
+        " " +
+        pad(date.getHours()) +
+        ":" +
+        pad(date.getMinutes()) +
+        ":" +
+        pad(date.getSeconds())
+      );
+    } else {
+    }
+
+    return (
+      date.getFullYear() +
+      "-" +
+      pad(date.getMonth() + 1) +
+      "-" +
+      pad(date.getDate())
+    );
+  }
+
+
