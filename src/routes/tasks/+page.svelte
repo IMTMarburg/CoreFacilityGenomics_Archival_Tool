@@ -1,10 +1,11 @@
 <script lang="ts">
   export let data;
+  import DatePeriod from "$lib/components/DatePeriod.svelte";
 
   function describe_task(task) {
     switch (task["type"]) {
-      //#case "provide_download_link":
-      // return `Provide download link (${task.run})`;
+      case "archive_run":
+	   return `Archive_run(${task.run}, delete=${task.delete_after_archive})`;
       default: {
         if (task["run"]) {
           return `${task["type"]} (${task.run})`;

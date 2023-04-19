@@ -31,6 +31,7 @@ export async function load() {
   }
 
   let runs = await load_archived_runs();
+  console.log(named_working_dir_runs);
   //filter runs to only those that are not in the process of being deleted
   runs = runs.filter((run) => {
     return named_open_tasks[run.name] == undefined &&

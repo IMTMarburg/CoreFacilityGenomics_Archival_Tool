@@ -149,8 +149,8 @@ def tar_output_folder(input_folder, output_file, exclude_data_folder=False):
         str(output_file.absolute()),
         str(input_folder.name),
     ]
-    print(cmd)
-    if exclude_data_folder:
+    has_any_fastq_files = any((True for x in input_folder.glob("**/*fastq*")))
+    if exclude_data_folder and has_any_fastq_files:
         cmd.insert(1, ["--exclude", "Data"])
     subprocess.check_call(cmd, cwd=input_folder.parent)
 
@@ -467,18 +467,11 @@ def delete_run(task):
     shutil.copytree(source, target, dirs_exist_ok=True)
     shutil.rmtree(source)
     add_event({"type": "run_deleted_from_working_set", "run": task["run"]})
-    update_task(
-        task,
-        {
-            "status": "done",
-            "finish_time": int(time.time()),
-        },
-    )
 
 
 def archive_run(task):
     source = find_run(task["run"])
-    source_folder = str(source.relative_to(working_dir))
+    source_folder = str(source.relative_to(working_dir).parent)
     target = archived_dir / (safe_name(task["run"]) + ".tar.zstd.age")
     key, size = tar_and_encrypt(source, target)
     today = datetime.date.today()
@@ -506,7 +499,7 @@ def unarchive_run(task):
             key = ev["key"]
             target = working_dir / ev["source_folder"]
             target.parent.mkdir(exist_ok=True, parents=True)
-            if target.exists():
+            if (target / ev["run"]).exists():
                 update_task(
                     task,
                     {
@@ -550,6 +543,14 @@ for task in get_open_tasks():
         if task["timestamp"] < time.time() - minutes_before_starting_deletion * 60:
             update_task(task, {"status": "processing"})
             delete_run(task)
+            update_task(
+                task,
+                {
+                    "status": "done",
+                    "finish_time": int(time.time()),
+                },
+            )
+
     elif task["type"] == "archive_run":
         update_task(task, {"status": "processing"})
         archive_run(task)
