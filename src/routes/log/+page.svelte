@@ -5,6 +5,6 @@ export let data;
 
 <h1>Log from the last background process runs</h1>
 <pre>
-{JSON.stringify(data)}
+{data.log}
 </pre>
 
