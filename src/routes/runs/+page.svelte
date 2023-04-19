@@ -4,6 +4,7 @@
     load_events,
   } from "$lib/util";
   import DatePeriod from "$lib/components/DatePeriod.svelte";
+  import RunDisplay from "$lib/components/RunDisplay.svelte";
   export let data;
 </script>
 
@@ -22,7 +23,10 @@
   </tr>
   {#each Object.values(data.runs) as run}
     <tr>
-      <td>{run.name}</td>
+      <td>
+	  <RunDisplay data={run}/>
+
+	  </td>
       <td>
 		<DatePeriod timestamp={run.run_finish_date} />
 

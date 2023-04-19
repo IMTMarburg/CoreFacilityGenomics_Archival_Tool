@@ -1,6 +1,7 @@
 <script lang="ts">
   import { base } from "$app/paths";
   import DatePeriod from "$lib/components/DatePeriod.svelte";
+  import RunDisplay from "$lib/components/RunDisplay.svelte";
   import { iso_date, event_details, hash_string } from "$lib/util";
   import * as EmailValidator from "email-validator";
   export let data;
@@ -49,7 +50,10 @@
         value={run.name}
         bind:group={chosen_run}
       />
-      <label for="run_{escape_name(run.name)}">{run.name}</label>
+      <label for="run_{escape_name(run.name)}">{run.name}
+
+	  </label>
+	  <RunDisplay data={run} label="info" />
       <br />
     {/each}
   {/if}

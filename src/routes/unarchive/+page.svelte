@@ -1,8 +1,6 @@
 <script lang="ts">
-  import {
-    event_details,
-    hash_string,
-  } from "$lib/util";
+  import { event_details, hash_string } from "$lib/util";
+  import RunDisplay from "$lib/components/RunDisplay.svelte";
   import DatePeriod from "$lib/components/DatePeriod.svelte";
   import * as EmailValidator from "email-validator";
   export let data;
@@ -29,26 +27,38 @@
   {:else}
     <ul class="radio-toolbar">
       {#each data.runs as run}
-        <li>
-          <input
-            type="radio"
-            name="run"
-            id="run_{escape_name(run.name)}"
-            value={run.name}
-            required
-          />
-          <label for="run_{escape_name(run.name)}">
-            <p>
-              Run {run.name}
-              <br />
-			  &nbsp; Finish date: <DatePeriod timestamp={run.run_finish_date} newline={false} /><br />
-              &nbsp; Archive date: <DatePeriod timestamp={run.archive_date} newline={false} />
-            </p></label
-          >
+        <li style="clear:both">
+          <div style="float:left">
+            <input
+              type="radio"
+              name="run"
+              id="run_{escape_name(run.name)}"
+              value={run.name}
+              required
+            />
+            <label for="run_{escape_name(run.name)}">
+              <p>
+                Run {run.name}
+                <br />
+                &nbsp; Finish date: <DatePeriod
+                  timestamp={run.run_finish_date}
+                  newline={false}
+                /><br />
+                &nbsp; Archive date: <DatePeriod
+                  timestamp={run.archive_date}
+                  newline={false}
+                />
+              </p></label
+            >
+          </div>
+          <div style="float:left">
+            <RunDisplay data={run} label="SampleSheet" />
+          </div>
         </li>
       {/each}
     </ul>
-    <input type="submit" value="Restore" name="what"/>
+    <br style="clear:both" />
+    <input type="submit" value="Restore" name="what" />
   {/if}
 </form>
 
@@ -68,11 +78,8 @@
       <tr>
         <td>{task.run}</td>
         <td><DatePeriod timestamp={task.run_finish_date} newline={false} /></td>
-        <td
-          > <DatePeriod timestamp={task.archive_date} newline={false} />
-		  </td
-        >
-		<td><DatePeriod timestamp={task.timestamp} include_time=true /></td>
+        <td> <DatePeriod timestamp={task.archive_date} newline={false} /> </td>
+        <td><DatePeriod timestamp={task.timestamp} include_time="true" /></td>
         <td>{task.status} </td>
       </tr>
     {/each}

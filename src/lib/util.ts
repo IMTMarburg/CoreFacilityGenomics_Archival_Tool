@@ -188,6 +188,8 @@ interface Run {
   in_archive?: boolean;
   archive_date?: number;
   archive_size?: number;
+  earliest_deletion_timestamp: number;
+  sample_sheet?: string;
 }
 
 type RunMap = {
@@ -207,6 +209,7 @@ export async function load_runs() {
         download_count: 0,
         in_working_set: true,
         earliest_deletion_timestamp: parseInt(ev.earliest_deletion_timestamp),
+		sample_sheet: ev.sample_sheet,
       };
     } else if (ev.type == "run_download_provided") {
       runs[ev.run]["download_available"] = true;

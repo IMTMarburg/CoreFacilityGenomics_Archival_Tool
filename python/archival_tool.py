@@ -44,7 +44,9 @@ def load_events():
         events = []
         for filename in event_dir.glob("*.json"):
             try:
-                timestamp, pid = re.match(r"(\d+)_(\d+).*\.json", filename.name).groups()
+                timestamp, pid = re.match(
+                    r"(\d+)_(\d+).*\.json", filename.name
+                ).groups()
             except:
                 print("invalid filename", filename.name)
                 continue
@@ -256,9 +258,7 @@ def send_email(receivers, invalidation_timestamp, comment, filename):
     url = secrets["mail"]["url"] + filename
     message = template.replace("%URL%", url)
     invalidation_date = datetime.datetime.fromtimestamp(invalidation_timestamp)
-    message = message.replace(
-        "%DELETION_DATE%", invalidation_date.strftime("%Y-%m-%d")
-    )
+    message = message.replace("%DELETION_DATE%", invalidation_date.strftime("%Y-%m-%d"))
     message = message.replace(
         "%DAYS%", str((invalidation_date - datetime.datetime.now()).days)
     )
@@ -370,8 +370,7 @@ def extract_american_date_and_convert_to_unix_timestamp(input_str):
     )
 
     if not date_match:
-        # print("no match in", input_str)
-        return extract_american_date_and_convert_to_unix_timestamp_format2(input_str)
+        return None
 
     # Extract the date string from the regex match
     date_str = date_match.group(0)
@@ -388,11 +387,37 @@ def extract_american_date_and_convert_to_unix_timestamp_format2(input_str):
         r"\d{1,2}/\d{1,2}/\d{4},\d{1,2}:\d{2}:\d{2}\.\d{3}", input_str
     )
     if not date_match:
-        print("no match for either date format in", input_str)
         return None
     date_obj = datetime.datetime.strptime(date_match.group(0), "%m/%d/%Y,%H:%M:%S.%f")
     timestamp = int(time.mktime(date_obj.timetuple()))
     return timestamp
+
+
+def extract_date_months_as_text(input_str):
+    # formated like 11-Feb-21 5:54:11 PM
+    date_match = re.search(
+        r"\d{1,2}-[A-Za-z]{3}-\d{2}\s+\d{1,2}:\d{2}:\d{2}\s+(?:AM|PM)", input_str
+    )
+    if not date_match:
+        return None
+    date_obj = datetime.datetime.strptime(date_match.group(0), "%d-%b-%y %I:%M:%S %p")
+    timestamp = int(time.mktime(date_obj.timetuple()))
+    return timestamp
+
+
+def extract_illumina_date(input_str):
+    for parser in [
+        extract_american_date_and_convert_to_unix_timestamp,
+        extract_american_date_and_convert_to_unix_timestamp_format2,
+        extract_date_months_as_text,
+    ]:
+        try:
+            timestamp = parser(input_str)
+            if timestamp is not None:
+                return timestamp
+        except:
+            pass
+    return None
 
 
 def discover_runs():
@@ -407,18 +432,29 @@ def discover_runs():
             current.remove(event["run"])
     for rta_complete in working_dir.glob("**/RTAComplete.txt"):
         run = rta_complete.parent.name
-        run_finish_date = extract_american_date_and_convert_to_unix_timestamp(
-            rta_complete.read_text()
-        )
+        run_finish_date = extract_illumina_date(rta_complete.read_text())
         if not run_finish_date:
-            raise ValueError()
+            if not rta_complete.read_text():
+                run_finish_date = rta_complete.stat().st_mtime
+            else:
+                raise ValueError("could not extract date", rta_complete)
+        sample_sheet = ""
+        sample_sheet_filename = rta_complete.parent / "SampleSheet.csv"
+        if sample_sheet_filename.exists():
+            try:
+                sample_sheet = sample_sheet_filename.read_text()
+            except:
+                sample_sheet = "Could not be read"
+
         if run not in ever:
             add_event(
                 {
                     "type": "run_discovered",
                     "run": str(run),
                     "run_finish_date": run_finish_date,
-                    "earliest_deletion_timestamp": run_finish_date + minimum_days_to_keep * 24 * 60 * 60,
+                    "earliest_deletion_timestamp": run_finish_date
+                    + minimum_days_to_keep * 24 * 60 * 60,
+                    "sample_sheet": sample_sheet,
                 }
             )
         elif run not in current:
@@ -506,12 +542,12 @@ def delete_from_archive(task):
 
 
 for task in get_open_tasks():
-    print('got task', task)
+    print("got task", task)
     if task["type"] == "provide_download_link":
         update_task(task, {"status": "processing"})
         provide_download_link(task)
     elif task["type"] == "delete_run":
-        if task['timestamp'] < time.time() - minutes_before_starting_deletion * 60:
+        if task["timestamp"] < time.time() - minutes_before_starting_deletion * 60:
             update_task(task, {"status": "processing"})
             delete_run(task)
     elif task["type"] == "archive_run":
@@ -530,7 +566,7 @@ for task in get_open_tasks():
         update_task(task, {"status": "processing"})
         unarchive_run(task)
     elif task["type"] == "remove_from_archive":
-        if task['timestamp'] < time.time() - minutes_before_starting_deletion * 60:
+        if task["timestamp"] < time.time() - minutes_before_starting_deletion * 60:
             update_task(task, {"status": "processing"})
             delete_from_archive(task)
 

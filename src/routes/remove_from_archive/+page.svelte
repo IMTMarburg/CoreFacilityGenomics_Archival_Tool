@@ -1,5 +1,6 @@
 <script lang="ts">
   import { event_details, hash_string } from "$lib/util";
+  import RunDisplay from "$lib/components/RunDisplay.svelte";
   import DatePeriod from "$lib/components/DatePeriod.svelte";
   import * as EmailValidator from "email-validator";
   export let data;
@@ -29,7 +30,8 @@
     Run to delete:
     <ul class="radio-toolbar">
       {#each data.runs as run}
-        <li>
+        <li style="clear:both">
+          <div style="float:left">
           <input
             type="radio"
             name="run"
@@ -38,7 +40,6 @@
             required
           />
           <label for="run_{escape_name(run.name)}">
-            <p>
               Run {run.name}
               <br />
               Finish date: <DatePeriod
@@ -54,11 +55,17 @@
                 newline={false}
               /><br />
 			  Currently in working set: {@html run.in_working_set ? "Yes" : "<b class=danger>No</b>"}
-            </p></label
+            </label
           >
+   </div>
+          <div style="float:left">
+            <RunDisplay data={run} label="SampleSheet" />
+          </div>
+
         </li>
       {/each}
     </ul>
+	<br style="clear:both"/>	
     <input
       type="submit"
       value="DELETE FROM ARCHIVE"

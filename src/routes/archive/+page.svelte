@@ -1,5 +1,6 @@
 <script lang="ts">
   import { event_details, hash_string } from "$lib/util";
+  import RunDisplay from "$lib/components/RunDisplay.svelte";
   import DatePeriod from "$lib/components/DatePeriod.svelte";
   import * as EmailValidator from "email-validator";
   export let data;
@@ -27,27 +28,31 @@
   {:else}
     <ul class="radio-toolbar">
       {#each data.runs as run}
-        <li>
-          <input
-            type="radio"
-            name="run"
-            id="run_{escape_name(run.name)}"
-            value={run.name}
-            required
-          />
-          <label for="run_{escape_name(run.name)}">
-            <p>
+        <li style="clear:both">
+          <div style="float:left">
+            <input
+              type="radio"
+              name="run"
+              id="run_{escape_name(run.name)}"
+              value={run.name}
+              required
+            />
+            <label for="run_{escape_name(run.name)}">
               Run {run.name}
               <br />
               Finish date: <DatePeriod
                 timestamp={run.run_finish_date}
                 newline={false}
               />
-            </p></label
-          >
+            </label>
+          </div>
+          <div style="float:left">
+            <RunDisplay data={run} label="SampleSheet" />
+          </div>
         </li>
       {/each}
     </ul>
+    <br style="clear:both" />
     <input type="submit" value="Archive" name="what" />
     <input
       type="submit"
@@ -77,7 +82,7 @@
         <td><DatePeriod timestamp={task.run_finish_date} newline={false} /></td>
         <td><DatePeriod timestamp={task.archive_date} newline={false} /></td>
         <td>{task.delete_after_archive ? "Yes" : "No"}</td>
-		<td><DatePeriod timestamp={task.timestamp} include_time=true /></td>
+        <td><DatePeriod timestamp={task.timestamp} include_time="true" /></td>
         <td>{task.status} </td>
       </tr>
     {/each}
