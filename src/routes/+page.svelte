@@ -66,4 +66,5 @@
   <li><a href="{base}/runs">Run status</a></li>
   <li><a href="{base}/tasks">Task status</a></li>
   <li><a href="{base}/events">Event log</a></li>
+  <li><a href="{base}/log">Background process output</a></li>
 </ul>

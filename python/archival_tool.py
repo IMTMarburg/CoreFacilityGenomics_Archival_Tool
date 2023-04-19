@@ -149,7 +149,7 @@ def tar_output_folder(input_folder, output_file, exclude_data_folder=False):
         str(output_file.absolute()),
         str(input_folder.name),
     ]
-    has_any_fastq_files = any((True for x in input_folder.glob("**/*fastq*")))
+    has_any_fastq_files = any((True for x in input_folder.glob("**/*.fastq*")))
     if exclude_data_folder and has_any_fastq_files:
         cmd.insert(1, ["--exclude", "Data"])
     subprocess.check_call(cmd, cwd=input_folder.parent)
