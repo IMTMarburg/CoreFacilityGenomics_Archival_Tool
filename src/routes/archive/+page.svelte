@@ -74,8 +74,8 @@
     {#each data.open_tasks as task}
       <tr>
         <td>{task.run}</td>
-        <td><DatePeriod timestamp={run.run_finish_date} newline={false} /></td>
-        <td><DatePeriod timestamp={run.archive_date} newline={false} /></td>
+        <td><DatePeriod timestamp={task.run_finish_date} newline={false} /></td>
+        <td><DatePeriod timestamp={task.archive_date} newline={false} /></td>
         <td>{task.delete_after_archive ? "Yes" : "No"}</td>
         <td>{format_timestamp(task.timestamp)}</td>
         <td>{task.status} </td>
