@@ -8,7 +8,7 @@ export const handle: Handle = async ({ event, resolve }) => {
   if (user == undefined) {
     throw new Error("no auth");
   }
-  event.locals.user = "shu";
+  event.locals.user = user;
 
   return resolve(event);
 };
