@@ -7,7 +7,7 @@
   export let data;
   export let form;
 
-  let chosen_run = form?.run ?? "";
+  let chosen_run = form?.run ?? [];
 
   function escape_name(name: string) {
     //escape for use in html id
@@ -38,23 +38,37 @@
     <p class="error">{form.error}</p>
   {/if}
 
-  <label> Run to include </label>
+  <label> Runs to include </label>
   {#if data.runs.length == 0}
     <p>No runs currently in working set.</p>
   {:else}
     {#each data.runs as run}
       <input
-        type="radio"
-        name="run"
+        type="checkbox"
+        name="to_send"
         id="run_{escape_name(run.name)}"
-        value={run.name}
+		value="{run.name}___complete"
         bind:group={chosen_run}
       />
-      <label for="run_{escape_name(run.name)}">{run.name}
+      <label for="run_{escape_name(run.name)}">{run.name} (complete)
 
 	  </label>
 	  <RunDisplay data={run} label="info" />
       <br />
+	  {#each run.alignments as alignment}
+	  <input
+        type="checkbox"
+        name="to_send"
+		id="run_{escape_name(run.name)}___{alignment}"
+		value="{run.name}___{alignment}"
+        bind:group={chosen_run}
+      />
+	  <label for="run_{escape_name(run.name)}___{alignment}"
+		  style="padding-left:1em;"
+
+	  >{run.name} ({alignment})
+	  </label>
+	  {/each}
     {/each}
   {/if}
   <br />
@@ -104,16 +118,22 @@
 {:else}
   <table>
     <tr>
-      <th>Run</th>
+      <th>Contents</th>
       <th>Date</th>
+      <th>Expires after</th>
       <th>Status</th>
       <th>Receiver</th>
       <th>URL</th>
     </tr>
     {#each data.last_requests as task}
       <tr>
-        <td>{task.run}</td>
+        <td>
+		{#each task.to_send as run_alignment }
+			{run_alignment.replace("___", " (")})<br />
+		{/each}
+		</td>
         <td><DatePeriod timestamp={task.timestamp} include_time="true" /></td>
+        <td><DatePeriod timestamp={task.invalid_after} include_time="true" /></td>
         <td>{task.status}</td>
         <td
           >{task.receivers}

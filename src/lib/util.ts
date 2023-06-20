@@ -209,15 +209,16 @@ export async function load_runs() {
         download_count: 0,
         in_working_set: true,
         earliest_deletion_timestamp: parseInt(ev.earliest_deletion_timestamp),
-		sample_sheet: ev.sample_sheet,
+        sample_sheet: ev.sample_sheet,
+        alignments: [],
       };
     } else if (ev.type == "run_download_provided") {
-      runs[ev.run]["download_available"] = true;
-      runs[ev.run]["download_name"] = ev.filename;
+//g     runs[ev.run]["download_available"] = true;
+      //runs[ev.run]["download_name"] = ev.filename;
     } else if (ev.type == "run_download_expired") {
       runs[ev.run]["download_available"] = false;
     } else if (ev.type == "run_downloaded") {
-      runs[ev.run]["download_count"] += 1;
+      //runs[ev.run]["download_count"] += 1;
     } else if (ev.type == "run_deleted_from_working_set") {
       runs[ev.run]["in_working_set"] = false;
     } else if (ev.type == "run_restored_to_working_set") {
@@ -229,6 +230,14 @@ export async function load_runs() {
       runs[ev.run]["archive_size"] = ev.size;
     } else if (ev.type == "run_deleted_from_archive") {
       runs[ev.run]["in_archive"] = false;
+    } else if (ev.type == "alignment_discovered") {
+      runs[ev.run]["alignments"].push(ev.alignment);
+    } else if (ev.type == "alignment_removed") {
+      //remove alignment from list
+      let index = runs[ev.run]["alignments"].indexOf(ev.alignment);
+      if (index > -1) {
+        runs[ev.run]["alignments"].splice(index, 1);
+      }
     }
   }
   //runs is an object, not an array
@@ -316,35 +325,33 @@ export async function pending_restores() {
 }
 
 export function toIsoStringTZO(date, include_time) {
-    var tzo = -date.getTimezoneOffset();
-    let pad = function (num) {
-      return (num < 10 ? "0" : "") + num;
-    };
+  var tzo = -date.getTimezoneOffset();
+  let pad = function (num) {
+    return (num < 10 ? "0" : "") + num;
+  };
 
-    if (include_time) {
-      return (
-        date.getFullYear() +
-        "-" +
-        pad(date.getMonth() + 1) +
-        "-" +
-        pad(date.getDate()) +
-        " " +
-        pad(date.getHours()) +
-        ":" +
-        pad(date.getMinutes()) +
-        ":" +
-        pad(date.getSeconds())
-      );
-    } else {
-    }
-
+  if (include_time) {
     return (
       date.getFullYear() +
       "-" +
       pad(date.getMonth() + 1) +
       "-" +
-      pad(date.getDate())
+      pad(date.getDate()) +
+      " " +
+      pad(date.getHours()) +
+      ":" +
+      pad(date.getMinutes()) +
+      ":" +
+      pad(date.getSeconds())
     );
+  } else {
   }
 
-
+  return (
+    date.getFullYear() +
+    "-" +
+    pad(date.getMonth() + 1) +
+    "-" +
+    pad(date.getDate())
+  );
+}

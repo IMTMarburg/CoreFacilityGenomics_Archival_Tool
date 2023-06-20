@@ -4,9 +4,9 @@ import * as EmailValidator from "email-validator";
 import {
   add_task,
   isodate_to_timestamp,
+  load_events,
   load_tasks,
   load_workingdir_runs,
-  load_events,
 } from "$lib/util";
 
 export async function load() {
@@ -26,7 +26,7 @@ export async function load() {
       console.log("bingo");
       for (let jj = last_requests.length - 1; jj >= 0; jj--) {
         if (last_requests[jj].filename == events[ii].filename) {
-          last_requests[jj].filename = '(expired)';
+          last_requests[jj].filename = "(expired)";
         }
       }
     }
@@ -36,10 +36,11 @@ export async function load() {
     a["name"].localeCompare(b["name"]);
   });
 
-  return {
-    runs,
+  let res = {
+    runs: runs,
     last_requests,
   };
+  return res;
 }
 
 export const actions = {
@@ -47,18 +48,29 @@ export const actions = {
     const data = await request.formData();
     try {
       let runs = await load_workingdir_runs();
-      if (data.get("run") == null) {
+      if (data.get("to_send") == null) {
         throw new Error("No run selected");
       }
-      let found = false;
-      for (let run of runs) {
-        if (run.name == data.get("run")) {
-          found = true;
-          break;
+      let to_send = data.getAll("to_send");
+	  let formated_to_send = [];
+      for (let run_alignment of to_send) {
+        let [run, alignment] = run_alignment.split("___");
+        let found = false;
+        for (let qrun of runs) {
+          if (qrun.name == run) {
+            if (
+              (alignment == "complete") ||
+              (qrun.alignments.indexOf(alignment) != -1)
+            ) {
+              found = true;
+			  formated_to_send.push(run_alignment);
+              break;
+            }
+          }
         }
-      }
-      if (!found) {
-        throw new Error("Run not found");
+        if (!found) {
+          throw new Error("Run not found: " + run + " - " + alignment);
+        }
       }
       if (
         (data.get("receivers").trim().length > 0) &&
@@ -79,10 +91,10 @@ export const actions = {
       }
 
       let invalidation_date = isodate_to_timestamp(data.get("date"));
-	  let comment = data.get("comment") ?? "";
+      let comment = data.get("comment") ?? "";
 
       add_task("provide_download_link", {
-        "run": data.get("run"),
+        "to_send": formated_to_send,
         "receivers": receivers,
         "invalid_after": invalidation_date + 24 * 3600,
 		"comment": comment,

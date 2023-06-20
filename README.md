@@ -11,9 +11,12 @@ ORIGIN=http://localhost:3000 nix run github:knarkzel/sveltekit-nix
 ## Development
 
 ```
-git clone https://github.com/knarkzel/sveltekit-nix
-cd sveltekit-nix
+cd ./
 nix develop
-yarn
-yarn run dev
+# now something like this to run the webserver.
+DATA_DIR=./data REMOTE_USER=flo DOWNLOAD_DIR=./downloads/ yarn dev
+(port / url will be printed)
+
+# and something like this to run the background task
+DELETED_DIR=./deleted/ DATA_DIR=./data WORKING_DIR=./working ARCHIVE_DIR=./archive/ DELETE_DIR=./deleted DOWNLOAD_DIR=./downloads SECRETS_FILE=/secrets/cfat.json python python/archival_tool.py
 ```

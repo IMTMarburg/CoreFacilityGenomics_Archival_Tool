@@ -124,10 +124,10 @@ def random_text(n):
     return "".join(random.choice(string.ascii_lowercase) for i in range(n))
 
 
-def find_last_provided_download(run):
+def find_last_provided_download(to_send):
     last_provided_download = None
     for event in load_events():
-        if event.get("type", "") == "run_download_provided" and event["run"] == run:
+        if event.get("type", "") == "run_download_provided" and event["to_send"] == to_send:
             last_provided_download = event["filename"]
         # can't do it like that because of the nesting
         # elif event['type'] == "run_download_removed" and event['run'] == run:
@@ -139,7 +139,7 @@ def find_last_provided_download(run):
         return None
 
 
-def tar_output_folder(input_folder, output_file, exclude_data_folder=False):
+def tar_output_folders(input_folders, output_file):
     # tar,b tu execlude the Data folder.
     cmd = [
         "tar",
@@ -147,12 +147,16 @@ def tar_output_folder(input_folder, output_file, exclude_data_folder=False):
         "zstd",
         "-cf",
         str(output_file.absolute()),
-        str(input_folder.name),
     ]
-    has_any_fastq_files = any((True for x in input_folder.glob("**/*.fastq*")))
-    if exclude_data_folder and has_any_fastq_files:
-        cmd.insert(1, ["--exclude", "Data"])
-    subprocess.check_call(cmd, cwd=input_folder.parent)
+    for ip in input_folders:
+        # remove working/ from start
+        ip = ip.relative_to(working_dir)
+        cmd.append(str(ip))
+    print(cmd)
+    # has_any_fastq_files = any((True for x in input_folder.glob("**/*.fastq*")))
+    # if exclude_data_folder and has_any_fastq_files:
+    #     cmd.insert(1, ["--exclude", "Data"])
+    subprocess.check_call(cmd, cwd=working_dir)
 
 
 def tar_and_encrypt(input_folder, output_file):
@@ -237,6 +241,15 @@ def find_run(run):
                 return rta_complete.parent
     raise ValueError("Not found")
 
+def find_run_alignment(run, alignment):
+    run_dir = find_run(run)
+    candidate = run_dir / run_dir.name / alignment
+    if candidate.exists():
+        return candidate
+    else:
+        raise ValueError("Alignment not found", run, alignment, candidate)
+
+
 
 def get_template():
     path = data_dir / "template.txt"
@@ -268,7 +281,7 @@ def send_email(receivers, invalidation_timestamp, comment, filename):
         message = message.replace("%COMMENT%", "(no comment provided)")
 
     msg = MIMEText(message)
-    msg["Subject"] = "Sequencing run finished"
+    msg["Subject"] = "Sequencing run ready for download"
     msg["From"] = sender
     msg["To"] = ",".join(receivers)
     s = smtplib.SMTP(smtp_server, smtp_port)
@@ -282,19 +295,36 @@ def send_email(receivers, invalidation_timestamp, comment, filename):
 
 
 def provide_download_link(task):
+    to_send = task["to_send"]
+    if len(to_send) == 0:
+        name = to_send[0].split("___")[0]
+    else:
+        name = "multiple_sequencing_runs"
+    name = safe_name(name)
+
     output_name = (
         time.strftime("%Y-%m-%d_%H-%M-%S_")
-        + safe_name(task["run"])
+        + name
         + "_"
         + random_text(5)
         + ".tar.zstd"
     )
-    last_provided_download = find_last_provided_download(task["run"])
+    last_provided_download = find_last_provided_download(task["to_send"])
     try:
         if last_provided_download:
             os.link(download_dir / last_provided_download, download_dir / output_name)
         else:
-            tar_output_folder(find_run(task["run"]), download_dir / output_name)
+            #todo: this is what we need to implement next
+            print(task)
+            paths_to_include = []
+            for run_alignment in to_send:
+                run, alignment = run_alignment.split("___")
+                if alignment == "complete":
+                    paths_to_include.append(find_run(run))
+                else:
+                    paths_to_include.append(find_run_alignment(run, alignment))
+            print(paths_to_include)
+            tar_output_folders(paths_to_include, download_dir / output_name)
         if task["receivers"]:
             try:
                 email = send_email(
@@ -312,7 +342,7 @@ def provide_download_link(task):
         add_event(
             {
                 "type": "run_download_provided",
-                "run": task["run"],
+                "run": task["to_send"],
                 "filename": str(output_name),
                 "finish_time": int(time.time()),
                 "details": {"receivers": task["receivers"]},
@@ -420,9 +450,23 @@ def extract_illumina_date(input_str):
     return None
 
 
+def load_sample_sheet(dir):
+    sample_sheet = ""
+    sample_sheet_filename = dir / "SampleSheet.csv"
+    if sample_sheet_filename.exists():
+        try:
+            sample_sheet = sample_sheet_filename.read_text()
+        except:
+            sample_sheet = "Could not be read"
+    return sample_sheet
+
+
 def discover_runs():
     ever = set()
     current = set()
+    current_alignments = set()
+    alignments_seen = set()
+
     for event in load_events():
         t = event.get("type", "")
         if t == "run_discovered" or t == "run_restored_to_working_set":
@@ -430,7 +474,20 @@ def discover_runs():
             current.add(event["run"])
         elif t == "run_deleted_from_working_set":
             current.remove(event["run"])
-    for rta_complete in working_dir.glob("**/RTAComplete.txt"):
+            current_alignments = {
+                (run, alignment)
+                for run, alignment in current_alignments
+                if run != event["run"]
+            }
+        elif t == "alignment_discovered":
+            # alignments_ever.add((event["run"], event["alignment"]))
+            current_alignments.add((event["run"], event["alignment"]))
+        elif t == "alignment_removed":
+            current_alignments.remove((event["run"], event["alignment"]))
+
+    # make sure we get the runs before the alignments
+    q = sorted(working_dir.glob("**/RTAComplete.txt"), key = lambda x: (str(x).count("/"), x))
+    for rta_complete in q:
         run = rta_complete.parent.name
         run_finish_date = extract_illumina_date(rta_complete.read_text())
         if not run_finish_date:
@@ -438,27 +495,57 @@ def discover_runs():
                 run_finish_date = rta_complete.stat().st_mtime
             else:
                 raise ValueError("could not extract date", rta_complete)
-        sample_sheet = ""
-        sample_sheet_filename = rta_complete.parent / "SampleSheet.csv"
-        if sample_sheet_filename.exists():
-            try:
-                sample_sheet = sample_sheet_filename.read_text()
-            except:
-                sample_sheet = "Could not be read"
 
-        if run not in ever:
-            add_event(
-                {
-                    "type": "run_discovered",
-                    "run": str(run),
-                    "run_finish_date": run_finish_date,
-                    "earliest_deletion_timestamp": run_finish_date
-                    + minimum_days_to_keep * 24 * 60 * 60,
-                    "sample_sheet": sample_sheet,
-                }
-            )
-        elif run not in current:
-            add_event({"type": "run_restored_to_working_set", "run": str(run)})
+        alignment_detection_file = rta_complete.parent / "CompletedJobInfo.xml"
+        if alignment_detection_file.exists():
+            if not run in current:
+                # we exploit that it's parents before children in globbing with **
+                print(current, run)
+                raise ValueError("run had alignment, but is not in current?!)")
+            for possibly_alignment_dir in rta_complete.parent.glob("*"):
+                if (
+                    possibly_alignment_dir.is_dir()
+                    and possibly_alignment_dir.name.startswith("Alignment_")
+                ):
+                    al = (run, possibly_alignment_dir.name)
+                    alignments_seen.add(al)
+                    if al not in current_alignments:
+                        current_alignments.add(al)
+                        add_event(
+                            {
+                                "type": "alignment_discovered",
+                                "alignment": possibly_alignment_dir.name,
+                                "run": str(run),
+                                "sample_sheet": load_sample_sheet(rta_complete.parent),
+                            }
+                        )
+        else:
+            # it is a run
+
+            if run not in ever:
+                add_event(
+                    {
+                        "type": "run_discovered",
+                        "run": str(run),
+                        "run_finish_date": run_finish_date,
+                        "earliest_deletion_timestamp": run_finish_date
+                        + minimum_days_to_keep * 24 * 60 * 60,
+                        "sample_sheet": load_sample_sheet(rta_complete.parent),
+                    }
+                )
+                current.add(str(run))
+                ever.add(str(run))
+            elif run not in current:
+                current.add(str(run))
+                add_event({"type": "run_restored_to_working_set", "run": str(run)})
+    for al in current_alignments.difference(alignments_seen):
+        add_event(
+            {
+                "type": "alignment_removed",
+                "run": str(al[0]),
+                "alignment": str(al[1]),
+            }
+        )
 
 
 def delete_run(task):
