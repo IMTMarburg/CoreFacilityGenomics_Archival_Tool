@@ -355,3 +355,19 @@ export function toIsoStringTZO(date, include_time) {
     pad(date.getDate())
   );
 }
+
+export async function pending_sorts() {
+  let open_tasks = [];
+  let tasks = await load_tasks();
+  for (let task of tasks) {
+    if (
+      task["type"] == "sort_by_date" &&
+      (task["status"] == "open" || task["status"] == "processing")
+    ) {
+      open_tasks.push(task);
+    }
+  }
+  return open_tasks;
+}
+
+

@@ -22,6 +22,17 @@
     new_date.setDate(new_date.getDate() + days);
     return new_date;
   }
+
+  function forward_complete_click(ev) {
+	  let run = this.value.split("___")[0];
+	  //now find each input that starts with that value
+	  let inputs = document.querySelectorAll("input");
+	  for (let i = 0; i < inputs.length; i++) {
+		  if (inputs[i].value.startsWith(run)) {
+			  inputs[i].checked = ev.target.checked;
+		  }
+	  }
+  }
 </script>
 
 <h1>Send Link</h1>
@@ -43,12 +54,14 @@
     <p>No runs currently in working set.</p>
   {:else}
     {#each data.runs as run}
+	<div  class="evenodd" style="border-bottom: 1px dashed grey;">
       <input
         type="checkbox"
         name="to_send"
         id="run_{escape_name(run.name)}"
 		value="{run.name}___complete"
         bind:group={chosen_run}
+		on:click={forward_complete_click}
       />
       <label for="run_{escape_name(run.name)}">{run.name} (complete)
 
@@ -56,19 +69,23 @@
 	  <RunDisplay data={run} label="info" />
       <br />
 	  {#each run.alignments as alignment}
+	  <span 
+		  style="padding-left:1em;"
+		  />
 	  <input
-        type="checkbox"
-        name="to_send"
+		type="checkbox"
+		name="to_send"
 		id="run_{escape_name(run.name)}___{alignment}"
 		value="{run.name}___{alignment}"
-        bind:group={chosen_run}
-      />
+		bind:group={chosen_run}
+	  />
 	  <label for="run_{escape_name(run.name)}___{alignment}"
-		  style="padding-left:1em;"
 
 	  >{run.name} ({alignment})
 	  </label>
+	  <br />
 	  {/each}
+	</div>
     {/each}
   {/if}
   <br />

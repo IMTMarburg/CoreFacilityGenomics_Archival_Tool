@@ -63,7 +63,7 @@
     <input type="submit" value="Delete" class="danger" />
   {/if}
 </form>
-(if you're missing a run, it might be currently being<a href="{base}/archive"
+(if you're missing a run, it might be currently being <a href="{base}/archive"
   >archived</a
 >)
 

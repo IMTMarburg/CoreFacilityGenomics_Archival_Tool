@@ -1,4 +1,5 @@
 import shutil
+import hashlib
 import tempfile
 from email.mime.text import MIMEText
 import smtplib
@@ -13,8 +14,8 @@ from pathlib import Path
 import os
 
 min_archive_years = 0
-minimum_days_to_keep = 90
-minutes_before_starting_deletion = 1
+minimum_days_to_keep = 0
+minutes_before_starting_deletion = 0
 
 download_dir = Path(os.environ["DOWNLOAD_DIR"])
 working_dir = Path(os.environ["WORKING_DIR"])
@@ -127,7 +128,10 @@ def random_text(n):
 def find_last_provided_download(to_send):
     last_provided_download = None
     for event in load_events():
-        if event.get("type", "") == "run_download_provided" and event["to_send"] == to_send:
+        if (
+            event.get("type", "") == "run_download_provided"
+            and event["to_send"] == to_send
+        ):
             last_provided_download = event["filename"]
         # can't do it like that because of the nesting
         # elif event['type'] == "run_download_removed" and event['run'] == run:
@@ -172,7 +176,8 @@ def tar_and_encrypt(input_folder, output_file):
     tar_cmd = [
         "tar",
         "--exclude",
-        "Data",
+        # "Data",
+        "--exclude={*.fastq.gz}",
         "--use-compress-program",
         "zstd -19",
         "-c",
@@ -231,15 +236,21 @@ def decrypt_and_untar(encrypted_file, output_folder, key):
         raise
 
 
-def find_run(run):
+def find_run(run,include_archived=False):
     candidate = working_dir / run
     if candidate.exists():
         return candidate
     else:
-        for rta_complete in working_dir.glob("**/RTAComplete.txt"):
-            if rta_complete.parent.name == run:
+        if include_archived:
+            query ="**/RTAComplete.txt.sha256"
+        else:
+            query ="**/RTAComplete.txt"
+        for rta_complete in working_dir.glob(query):
+            if rta_complete.parent.name == run and not (rta_complete.parent / "CompletedJobInfo.xml").exists():
                 return rta_complete.parent
     raise ValueError("Not found")
+
+
 
 def find_run_alignment(run, alignment):
     run_dir = find_run(run)
@@ -248,7 +259,6 @@ def find_run_alignment(run, alignment):
         return candidate
     else:
         raise ValueError("Alignment not found", run, alignment, candidate)
-
 
 
 def get_template():
@@ -303,18 +313,14 @@ def provide_download_link(task):
     name = safe_name(name)
 
     output_name = (
-        time.strftime("%Y-%m-%d_%H-%M-%S_")
-        + name
-        + "_"
-        + random_text(5)
-        + ".tar.zstd"
+        time.strftime("%Y-%m-%d_%H-%M-%S_") + name + "_" + random_text(5) + ".tar.zstd"
     )
     last_provided_download = find_last_provided_download(task["to_send"])
     try:
         if last_provided_download:
             os.link(download_dir / last_provided_download, download_dir / output_name)
         else:
-            #todo: this is what we need to implement next
+            # todo: this is what we need to implement next
             print(task)
             paths_to_include = []
             for run_alignment in to_send:
@@ -486,7 +492,9 @@ def discover_runs():
             current_alignments.remove((event["run"], event["alignment"]))
 
     # make sure we get the runs before the alignments
-    q = sorted(working_dir.glob("**/RTAComplete.txt"), key = lambda x: (str(x).count("/"), x))
+    q = sorted(
+        working_dir.glob("**/RTAComplete.txt"), key=lambda x: (str(x).count("/"), x)
+    )
     for rta_complete in q:
         run = rta_complete.parent.name
         run_finish_date = extract_illumina_date(rta_complete.read_text())
@@ -510,6 +518,10 @@ def discover_runs():
                     al = (run, possibly_alignment_dir.name)
                     alignments_seen.add(al)
                     if al not in current_alignments:
+                        # I'm going to assume that it's *done*
+                        # at this poin, since we had CompletedJobInfo.xml...
+                        for filename in possibly_alignment_dir.glob("**/*.fastq.gz"):
+                            store_hash(filename)
                         current_alignments.add(al)
                         add_event(
                             {
@@ -548,11 +560,42 @@ def discover_runs():
         )
 
 
-def delete_run(task):
+def store_hash(filename):
+    hashfile = filename.with_suffix(filename.suffix + ".sha256")
+    if not hashfile.exists():
+        h = hashlib.sha256()
+        with open(filename, "rb") as op:
+            bs = 50 * 1024 * 1024
+            block = op.read(bs)
+            while block:
+                h.update(block)
+                block = op.read(bs)
+        hashfile.write_text(h.hexdigest())
+
+
+def delete_run(task):  # from working dir.
     source = find_run(task["run"])
     target = deleted_dir / task["run"]
     shutil.copytree(source, target, dirs_exist_ok=True)
-    shutil.rmtree(source)
+    # we only remove the data intensive files,
+    # keeping the run folder far statistics etc as it is.
+    # and since I'm paranoid, we're also keeping a hash
+    # of each file.
+    # shutil.rmtree(source)
+
+    files = list()
+    files.extend(source.glob("**/*.fastq.gz"))
+    data_path = source / "Data" / "Intensities"
+    files.extend(data_path.glob("**/*"))
+    files.extend(
+        source.glob("**/RTAComplete.txt")
+    )  # otherwise we redetect the alignments
+
+    for filename in files:
+        if filename.is_file():
+            store_hash(filename)
+            filename.unlink()
+
     add_event({"type": "run_deleted_from_working_set", "run": task["run"]})
 
 
@@ -584,9 +627,15 @@ def unarchive_run(task):
         if ev["type"] == "run_archived" and ev["run"] == task["run"]:
             source = ev["filename"]
             key = ev["key"]
-            target = working_dir / ev["source_folder"]
-            target.parent.mkdir(exist_ok=True, parents=True)
-            if (target / ev["run"]).exists():
+            # the tarstarts with ./run_name.
+            # we need to find out where it might have moved .
+            try:
+                path = find_run(ev['run'], include_archived=True)
+                target = path.parent
+            except ValueError:
+                target = working_dir / ev["source_folder"]
+                target.parent.mkdir(exist_ok=True, parents=True)
+            if (target / ev["run"] / "RTAComplete.txt").exists():
                 update_task(
                     task,
                     {
@@ -618,6 +667,28 @@ def delete_from_archive(task):
             "run": task["run"],
         }
     )
+    update_task(task, {"status": "done"})
+
+
+def sort_by_date(task):
+    for fn in working_dir.glob("*"):
+        if fn.is_dir():
+            if len(fn.name) <= 4:
+                continue
+            year = fn.name[:2]
+            try:
+                year_int = int(year)
+            except:
+                continue
+            rta_existed = False
+            for rta_fn in fn.glob("RTAComplete.txt*"):
+                rta_existed = True
+                break
+            folder_name = "20" + year
+            folder = working_dir / folder_name
+            folder.mkdir(exist_ok=True)
+            shutil.move(fn, folder / fn.name)
+
     update_task(task, {"status": "done"})
 
 
@@ -657,6 +728,9 @@ for task in get_open_tasks():
         if task["timestamp"] < time.time() - minutes_before_starting_deletion * 60:
             update_task(task, {"status": "processing"})
             delete_from_archive(task)
+    elif task["type"] == "sort_by_date":
+        update_task(task, {"status": "processing"})
+        sort_by_date(task)
 
 
 cleanup_downloads()
