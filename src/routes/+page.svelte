@@ -54,11 +54,12 @@
 </p>
 <h2>Actions</h2>
 <ul>
+  <li><a href="{base}/annotate_run">Annotate run (=mark as ready)</a></li>
   <li><a href="{base}/send_link">Send download link</a></li>
   <li><a href="{base}/archive">Archive</a></li>
   <li><a href="{base}/unarchive">Restore from archive</a></li>
   <li><a href="{base}/delete">Delete from working</a></li>
-  <li><a href="{base}/mail_template">Change mail template</a></li>
+  <li><a href="{base}/mail_template">Change mail templates</a></li>
   <li><a href="{base}/remove_from_archive">Delete from archive</a></li>
   <li><a href="{base}/sort_by_date">Sort runs by date</a></li>
 </ul>

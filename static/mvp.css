@@ -538,3 +538,7 @@ input[type="submit"].small {
 	padding-bottom:0;
 	margin-top:0px;
 }
+
+p.error {
+	color:red;
+}

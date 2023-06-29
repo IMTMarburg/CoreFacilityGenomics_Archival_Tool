@@ -2,6 +2,7 @@ import process from "process";
 import fs from "fs";
 const { subtle } = globalThis.crypto;
 import { add_styles } from "svelte/internal";
+import * as EmailValidator from "email-validator";
 
 export function iso_date(date: Date) {
   const isoDate = date.toISOString().split("T")[0];
@@ -211,9 +212,10 @@ export async function load_runs() {
         earliest_deletion_timestamp: parseInt(ev.earliest_deletion_timestamp),
         sample_sheet: ev.sample_sheet,
         alignments: [],
+        annotations: [],
       };
     } else if (ev.type == "run_download_provided") {
-//g     runs[ev.run]["download_available"] = true;
+      //g     runs[ev.run]["download_available"] = true;
       //runs[ev.run]["download_name"] = ev.filename;
     } else if (ev.type == "run_download_expired") {
       runs[ev.run]["download_available"] = false;
@@ -238,6 +240,8 @@ export async function load_runs() {
       if (index > -1) {
         runs[ev.run]["alignments"].splice(index, 1);
       }
+    } else if (ev.type == "run_annotated") {
+      runs[ev.run]["annotations"].push(ev.annotation);
     }
   }
   //runs is an object, not an array
@@ -370,4 +374,84 @@ export async function pending_sorts() {
   return open_tasks;
 }
 
+export async function load_template(name: string, default_text: string) {
+  let events = await load_events();
+  let result = default_text;
+  for (let ev of events) {
+    if ((ev.type == "template_changed") && (ev.name == name)) {
+      result = ev.text;
+    }
+  }
+  return result;
+}
 
+export async function save_template(
+  name: string,
+  template: string,
+  user: string,
+): Promise<Boolean> {
+  let old_template = await load_template(name, "");
+  if (old_template != template) {
+    await add_event("template_changed", {
+      "name": name,
+      "text": template,
+    }, user);
+    return true;
+  } else {
+    return false;
+  }
+}
+
+export function plus_days(date: Date, days: number) {
+  const new_date = new Date(date);
+  new_date.setDate(new_date.getDate() + days);
+  return new_date;
+}
+
+export function plus_months(date: Date, months: number) {
+  const new_date = new Date(date);
+  new_date.setMonth(new_date.getMonth() + months);
+  return new_date;
+}
+
+export function plus_years(date: Date, years: number) {
+  const new_date = new Date(date);
+  new_date.setFullYear(new_date.getFullYear() + years);
+  return new_date;
+}
+
+export function date_min(dateA: Date, dateB: Date) {
+	if (dateA == null) {
+		return dateB;
+	}
+	if (dateB == null) {
+		return dateA;
+	}
+  if (dateA < dateB) {
+	return dateA;
+  } else {
+	return dateB;
+  }
+}
+
+export function check_emails(newline_seperarated_addreses: string):  [string] 
+{
+	let nsa = newline_seperarated_addreses.trim();
+	if (
+        (nsa.length == 0) ||
+        (nsa.indexOf("@") == -1)
+      ) {
+        throw new Error("Receivers did not contain an @");
+      }
+      let individuals = nsa.split("\n");
+      let receivers = [];
+      for (let individual of individuals) {
+        individual = individual.trim();
+        if (individual.length != 0) {
+          if (!EmailValidator.validate(individual)) {
+            throw new Error("Invalid email address: '" + individual + "'");
+          }
+          receivers.push(individual);
+        }
+      }
+}

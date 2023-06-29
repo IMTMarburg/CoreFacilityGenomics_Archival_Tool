@@ -1,4 +1,5 @@
 import shutil
+import toml
 import hashlib
 import tempfile
 from email.mime.text import MIMEText
@@ -25,6 +26,9 @@ data_dir = Path(os.environ["DATA_DIR"])
 event_dir = data_dir / "events"
 task_dir = data_dir / "tasks"
 secret_file = Path(os.environ["SECRETS_FILE"])
+
+
+templates = toml.load(open(Path(os.environ["TEMPLATES_PATH"])))
 
 default_template = """
 Your download is available at %URL%.
@@ -236,20 +240,22 @@ def decrypt_and_untar(encrypted_file, output_folder, key):
         raise
 
 
-def find_run(run,include_archived=False):
+def find_run(run, include_archived=False):
     candidate = working_dir / run
     if candidate.exists():
         return candidate
     else:
         if include_archived:
-            query ="**/RTAComplete.txt.sha256"
+            query = "**/RTAComplete.txt.sha256"
         else:
-            query ="**/RTAComplete.txt"
+            query = "**/RTAComplete.txt"
         for rta_complete in working_dir.glob(query):
-            if rta_complete.parent.name == run and not (rta_complete.parent / "CompletedJobInfo.xml").exists():
+            if (
+                rta_complete.parent.name == run
+                and not (rta_complete.parent / "CompletedJobInfo.xml").exists()
+            ):
                 return rta_complete.parent
     raise ValueError("Not found")
-
 
 
 def find_run_alignment(run, alignment):
@@ -540,8 +546,7 @@ def discover_runs():
                         "type": "run_discovered",
                         "run": str(run),
                         "run_finish_date": run_finish_date,
-                        "earliest_deletion_timestamp": run_finish_date
-                        + minimum_days_to_keep * 24 * 60 * 60,
+                        # "earliest_deletion_timestamp": run_finish_date #+ minimum_days_to_keep * 24 * 60 * 60,
                         "sample_sheet": load_sample_sheet(rta_complete.parent),
                     }
                 )
@@ -630,7 +635,7 @@ def unarchive_run(task):
             # the tarstarts with ./run_name.
             # we need to find out where it might have moved .
             try:
-                path = find_run(ev['run'], include_archived=True)
+                path = find_run(ev["run"], include_archived=True)
                 target = path.parent
             except ValueError:
                 target = working_dir / ev["source_folder"]

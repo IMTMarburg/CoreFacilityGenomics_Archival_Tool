@@ -1,5 +1,4 @@
 import { fail } from "@sveltejs/kit";
-import * as EmailValidator from "email-validator";
 
 import {
   add_task,
@@ -7,6 +6,7 @@ import {
   load_events,
   load_tasks,
   load_workingdir_runs,
+  check_emails,
 } from "$lib/util";
 
 export async function load() {
@@ -52,7 +52,7 @@ export const actions = {
         throw new Error("No run selected");
       }
       let to_send = data.getAll("to_send");
-	  let formated_to_send = [];
+      let formated_to_send = [];
       for (let run_alignment of to_send) {
         let [run, alignment] = run_alignment.split("___");
         let found = false;
@@ -63,7 +63,7 @@ export const actions = {
               (qrun.alignments.indexOf(alignment) != -1)
             ) {
               found = true;
-			  formated_to_send.push(run_alignment);
+              formated_to_send.push(run_alignment);
               break;
             }
           }
@@ -72,23 +72,7 @@ export const actions = {
           throw new Error("Run not found: " + run + " - " + alignment);
         }
       }
-      if (
-        (data.get("receivers").trim().length > 0) &&
-        data.get("receivers").indexOf("@") == -1
-      ) {
-        throw new Error("Receivers did not contain an @");
-      }
-      let individuals = data.get("receivers").split("\n");
-      let receivers = [];
-      for (let individual of individuals) {
-        individual = individual.trim();
-        if (individual.length != 0) {
-          if (!EmailValidator.validate(individual)) {
-            throw new Error("Invalid email address: '" + individual + "'");
-          }
-          receivers.push(individual);
-        }
-      }
+      let receivers = check_emails(data.get("receivers"));
 
       let invalidation_date = isodate_to_timestamp(data.get("date"));
       let comment = data.get("comment") ?? "";
@@ -97,7 +81,7 @@ export const actions = {
         "to_send": formated_to_send,
         "receivers": receivers,
         "invalid_after": invalidation_date + 24 * 3600,
-		"comment": comment,
+        "comment": comment,
       }, locals.user);
     } catch (error) {
       return fail(422, {

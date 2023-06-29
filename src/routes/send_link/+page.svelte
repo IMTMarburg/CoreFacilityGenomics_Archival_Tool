@@ -2,7 +2,7 @@
   import { base } from "$app/paths";
   import DatePeriod from "$lib/components/DatePeriod.svelte";
   import RunDisplay from "$lib/components/RunDisplay.svelte";
-  import { iso_date, event_details, hash_string } from "$lib/util";
+  import { iso_date, event_details, hash_string ,plus_days } from "$lib/util";
   import * as EmailValidator from "email-validator";
   export let data;
   export let form;
@@ -17,13 +17,7 @@
     );
   }
 
-  function plus_days(date: Date, days: number) {
-    const new_date = new Date(date);
-    new_date.setDate(new_date.getDate() + days);
-    return new_date;
-  }
-
-  function forward_complete_click(ev) {
+    function forward_complete_click(ev) {
 	  let run = this.value.split("___")[0];
 	  //now find each input that starts with that value
 	  let inputs = document.querySelectorAll("input");
