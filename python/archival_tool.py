@@ -1,4 +1,7 @@
 import shutil
+import dateutil.relativedelta
+import unittest
+import sys
 import toml
 import hashlib
 import tempfile
@@ -14,10 +17,6 @@ import json
 from pathlib import Path
 import os
 
-min_archive_years = 0
-minimum_days_to_keep = 0
-minutes_before_starting_deletion = 0
-
 download_dir = Path(os.environ["DOWNLOAD_DIR"])
 working_dir = Path(os.environ["WORKING_DIR"])
 deleted_dir = Path(os.environ["DELETE_DIR"])
@@ -30,6 +29,8 @@ secret_file = Path(os.environ["SECRETS_FILE"])
 
 templates = toml.load(open(Path(os.environ["TEMPLATES_PATH"])))
 
+times = toml.load(open(Path(os.environ["TIMES_PATH"])))
+
 default_template = """
 Your download is available at %URL%.
 
@@ -38,7 +39,6 @@ It will be available until %DELETION_DATE% which is %DAYS% days from now.
 Further comments: %COMMENT%
 """
 
-download_cleanup_timeout_seconds = 3600 * 24 * 31
 
 _events = None
 
@@ -546,7 +546,6 @@ def discover_runs():
                         "type": "run_discovered",
                         "run": str(run),
                         "run_finish_date": run_finish_date,
-                        # "earliest_deletion_timestamp": run_finish_date #+ minimum_days_to_keep * 24 * 60 * 60,
                         "sample_sheet": load_sample_sheet(rta_complete.parent),
                     }
                 )
@@ -604,13 +603,31 @@ def delete_run(task):  # from working dir.
     add_event({"type": "run_deleted_from_working_set", "run": task["run"]})
 
 
+def add_time_interval(start_datetime, interval_name):
+    value= times[interval_name]['value']
+    unit = times[interval_name]['unit']
+    if unit == 'seconds':
+        return start_datetime + datetime.timedelta(seconds=value)
+    elif unit == 'minutes':
+        return start_datetime + datetime.timedelta(minutes=value)
+    elif unit == 'hours':
+        return start_datetime + datetime.timedelta(hours=value)
+    if unit == 'days':
+        return start_datetime + datetime.timedelta(days=value)
+    elif unit == 'weeks':
+        return start_datetime + datetime.timedelta(weeks=value)
+    elif unit == 'months':
+        return start_datetime + dateutil.relativedelta.relativedelta(months=value)
+    elif unit == 'years':
+        return start_datetime + dateutil.relativedelta.relativedelta(years=value)
+
 def archive_run(task):
     source = find_run(task["run"])
     source_folder = str(source.relative_to(working_dir).parent)
     target = archived_dir / (safe_name(task["run"]) + ".tar.zstd.age")
     key, size = tar_and_encrypt(source, target)
-    today = datetime.date.today()
-    end_date = today.replace(year=today.year + min_archive_years, day=today.day + 1)
+    today = datetime.datetime.today()
+    end_date = add_time_interval(today, 'archive')
     end_timestamp = int(time.mktime(end_date.timetuple()))
     add_event(
         {
@@ -703,7 +720,7 @@ for task in get_open_tasks():
         update_task(task, {"status": "processing"})
         provide_download_link(task)
     elif task["type"] == "delete_run":
-        if task["timestamp"] < time.time() - minutes_before_starting_deletion * 60:
+        if task["timestamp"] < (add_time_interval(datetime.datetime.now(), 'deletion_delay')).timestamp():
             update_task(task, {"status": "processing"})
             delete_run(task)
             update_task(
@@ -730,7 +747,7 @@ for task in get_open_tasks():
         update_task(task, {"status": "processing"})
         unarchive_run(task)
     elif task["type"] == "remove_from_archive":
-        if task["timestamp"] < time.time() - minutes_before_starting_deletion * 60:
+        if task["timestamp"] < (add_time_interval(datetime.datetime.now(), 'deletion_delay')).timestamp():
             update_task(task, {"status": "processing"})
             delete_from_archive(task)
     elif task["type"] == "sort_by_date":
@@ -738,5 +755,44 @@ for task in get_open_tasks():
         sort_by_date(task)
 
 
-cleanup_downloads()
-discover_runs()
+class TestTimeIntervals(unittest.TestCase):
+
+    def test_add_interval(self):
+        start = datetime.datetime(2021, 1, 1, 0, 0, 0)
+        times['test'] = {'value': 1, 'unit': 'seconds'}
+        end = add_time_interval(start, 'test')
+        assert end == datetime.datetime(2021, 1, 1, 0, 0, 1)
+        times['test'] = {'value': 1, 'unit': 'minutes'}
+        end = add_time_interval(start, 'test')
+        assert end == datetime.datetime(2021, 1, 1, 0, 1, 0)
+        times['test'] = {'value': 1, 'unit': 'hours'}
+        end = add_time_interval(start, 'test')
+        assert end == datetime.datetime(2021, 1, 1, 1, 0, 0)
+        times['test'] = {'value': 1, 'unit': 'days'}
+        end = add_time_interval(start, 'test')
+        assert end == datetime.datetime(2021, 1, 2, 0, 0, 0)
+        times['test'] = {'value': 1, 'unit': 'weeks'}
+        end = add_time_interval(start, 'test')
+        assert end == datetime.datetime(2021, 1, 8, 0, 0, 0)
+        times['test'] = {'value': 1, 'unit': 'months'}
+        end = add_time_interval(start, 'test')
+        assert end == datetime.datetime(2021, 2, 1, 0, 0, 0)
+        times['test'] = {'value': 1, 'unit': 'years'}
+        end = add_time_interval(start, 'test')
+        assert end == datetime.datetime(2022, 1, 1, 0, 0, 0)
+        times['test'] = {'value': 31, 'unit': 'days'}
+        end = add_time_interval(start, 'test')
+        assert end == datetime.datetime(2021, 2, 1, 0, 0, 0)
+        times['test'] = {'value': 15, 'unit': 'months'}
+        end = add_time_interval(start, 'test')
+        assert end == datetime.datetime(2022, 4, 1, 0, 0, 0)
+
+
+if __name__ == '__main__':
+    if '--test' in sys.argv:
+        sys.argv.remove('--test')
+        unittest.main()
+
+    else:
+        cleanup_downloads()
+        discover_runs()

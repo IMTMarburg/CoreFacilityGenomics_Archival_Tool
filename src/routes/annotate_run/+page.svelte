@@ -6,7 +6,7 @@
   export let data;
   export let form;
 
-  let show_all = false;
+  let show_all = true;
 
   function escape_name(name: string) {
     //escape for use in html id
@@ -20,8 +20,8 @@
 <h1>Annotate run</h1>
 
 <p>
-Here you can add the initial meta data to each run, 
-mark it as ready for download, and send an email to the user.
+Here you can add the meta data to each run,
+marke it as 'ready', and send a download email to the user.
 </p>
 
 <h2>Unannotated</h2>
@@ -35,18 +35,33 @@ mark it as ready for download, and send an email to the user.
 		No runs currently unannotated.
 {/if}
 
+<h2>Unfinished</h2>
+{#if Object.keys(data.unfinished_runs).length > 0}
+	<ul>
+      {#each Object.keys(data.unfinished_runs) as run}
+		  <li class="evenodd"><a href="annotate_run/{run}">{run}</a></li>
+	  {/each}
+	  </ul>
+	{:else}
+		No runs currently unfinished.
+{/if}
 <h2>Previously annotated</h2>
 
 <!-- lazy loading -->
 
 {#if show_all}
-	<ul>
-	  {#each Object.keys(data.annotatable_runs) as run}
-		  <li class="evenodd"><a href="annotate_run/{run}">{run}</a></li>
-	  {/each}
-	  </ul>
-  {:else}
-<a href="#annotated" on:click={() => {show_all = true;}}>(Click to load list)</a>
+	{#if Object.keys(data.prev_annotated).length > 0}
+		<ul>
+		  {#each Object.keys(data.prev_annotated) as run}
+			  <li class="evenodd"><a href="annotate_run/{run}">{run}</a></li>
+		  {/each}
+		  </ul>
+	{:else}
+		No runs previously annotated.
+	{/if}
+	  {:else}
+		<a href="#annotated" on:click={() => {show_all = true;}}>(Click to load list)</a>
+
 {/if}
 
 

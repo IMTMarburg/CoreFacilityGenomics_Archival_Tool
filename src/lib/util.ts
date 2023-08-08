@@ -2,6 +2,7 @@ import process from "process";
 import fs from "fs";
 const { subtle } = globalThis.crypto;
 import { add_styles } from "svelte/internal";
+import toml from "toml";
 import * as EmailValidator from "email-validator";
 
 export function iso_date(date: Date) {
@@ -421,37 +422,67 @@ export function plus_years(date: Date, years: number) {
 }
 
 export function date_min(dateA: Date, dateB: Date) {
-	if (dateA == null) {
-		return dateB;
-	}
-	if (dateB == null) {
-		return dateA;
-	}
+  if (dateA == null) {
+    return dateB;
+  }
+  if (dateB == null) {
+    return dateA;
+  }
   if (dateA < dateB) {
-	return dateA;
+    return dateA;
   } else {
-	return dateB;
+    return dateB;
   }
 }
 
-export function check_emails(newline_seperarated_addreses: string):  [string] 
-{
-	let nsa = newline_seperarated_addreses.trim();
-	if (
-        (nsa.length == 0) ||
-        (nsa.indexOf("@") == -1)
-      ) {
-        throw new Error("Receivers did not contain an @");
+export function check_emails(newline_seperarated_addreses: string): [string] {
+  let nsa = newline_seperarated_addreses.trim();
+  if (
+    (nsa.length == 0) ||
+    (nsa.indexOf("@") == -1)
+  ) {
+    throw new Error("Receivers did not contain an @");
+  }
+  let individuals = nsa.split("\n");
+  let receivers = [];
+  for (let individual of individuals) {
+    individual = individual.trim();
+    if (individual.length != 0) {
+      if (!EmailValidator.validate(individual)) {
+        throw new Error("Invalid email address: '" + individual + "'");
       }
-      let individuals = nsa.split("\n");
-      let receivers = [];
-      for (let individual of individuals) {
-        individual = individual.trim();
-        if (individual.length != 0) {
-          if (!EmailValidator.validate(individual)) {
-            throw new Error("Invalid email address: '" + individual + "'");
-          }
-          receivers.push(individual);
-        }
-      }
+      receivers.push(individual);
+    }
+  }
+  return receivers;
+}
+
+export function load_times() {
+  let toml_str = fs.readFileSync("./static/times.toml").toString();
+  let times = toml.parse(toml_str);
+  return times;
+}
+
+export function add_time_interval(
+  start_time: Date,
+  interval_name: string,
+  times,
+) {
+  let unit = times[interval_name]["unit"];
+  let value = times[interval_name]["value"];
+  if (unit == "seconds") {
+    return new Date(start_time.getTime() + value * 1000);
+  } else if (unit == "minutes") {
+    return new Date(start_time.getTime() + value * 1000 * 60);
+  } else if (unit == "hours") {
+    return new Date(start_time.getTime() + value * 1000 * 60 * 60);
+  } else if (unit == "days") {
+    return new Date(start_time.getTime() + value * 1000 * 60 * 60 * 24);
+  } else if (unit == "weeks") {
+    return new Date(start_time.getTime() + value * 1000 * 60 * 60 * 24 * 7);
+  } else if (unit == "months") {
+    return plus_months(start_time, value);
+  } else if (unit == "years") {
+    return plus_years(start_time, value);
+  }
 }

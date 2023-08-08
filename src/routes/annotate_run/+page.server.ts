@@ -2,18 +2,45 @@ import { fail } from "@sveltejs/kit";
 
 import { load_runs } from "$lib/util";
 
+function any_finished(annotations) {
+	//write to stdout
+	console.log(annotations);
+	for (var idx in annotations) {
+		if (annotations[idx]["run_finished"]) {
+			return true;
+		}
+	}
+	return false;
+}
+
 export async function load() {
-	let runs = await load_runs();
-	runs = Object.entries(runs);
-  let unannotated_runs = runs.filter((run) => run[1]['annotations'].length == 0);
+  let runs = await load_runs();
+  runs = Object.entries(runs);
+  let unannotated_runs = runs.filter((run) =>
+    run[1]["annotations"].length == 0
+  );
   unannotated_runs = Object.fromEntries(unannotated_runs);
 
-  let annotatable_runs = runs.filter((run) => run[1]['in_working_set'] && !run[1]['in_archive']);
-  annotatable_runs = Object.fromEntries(annotatable_runs);
+  let unfinished = runs.filter((run) =>
+    run[1]["in_working_set"] && !run[1]["in_archive"]
+	&& (run[1]["annotations"].length > 0)
+	&& (!any_finished(run[1]['annotations']))
+
+  );
+  unfinished = Object.fromEntries(unfinished);
+
+
+  let prev_annotated = runs.filter((run) =>
+    run[1]["in_working_set"] && !run[1]["in_archive"]
+	&& (run[1]["annotations"].length > 0)
+	&& (any_finished(run[1]['annotations']))
+  );
+  prev_annotated = Object.fromEntries(prev_annotated);
 
   return {
     unannotated_runs: unannotated_runs,
-	annotatable_runs: annotatable_runs,
+	unfinished_runs: unfinished,
+    prev_annotated: prev_annotated,
   };
 }
 

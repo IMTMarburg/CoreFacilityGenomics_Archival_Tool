@@ -1,0 +1,16 @@
+[archive]
+value = 10
+unit = 'years'
+
+[deletion_delay]
+value = 60
+unit = 'minutes'
+
+[download_retention]
+value = 31
+unit = 'days'
+
+[earliest_deletion]
+value = 90
+unit = 'days'
+

@@ -6,6 +6,7 @@
     plus_months,
     plus_years,
     date_min,
+    add_time_interval,
   } from "$lib/util";
   import RunDisplay from "$lib/components/RunDisplay.svelte";
   import DatePeriod from "$lib/components/DatePeriod.svelte";
@@ -13,8 +14,19 @@
   export let data;
   export let form;
 
-  let do_archive = form?.do_archive;
+  let do_archive = form
+    ? form.do_archive
+    : data.run["annotations"].length > 0
+    ? data.run["annotations"][data.run["annotations"].length - 1]["do_archive"]
+    : false;
+
   let send_download_link = form == null || form.send_download_link;
+  let run_finished =
+    (data.run["annotations"].length > 0 &&
+      data.run["annotations"][data.run["annotations"].length - 1][
+        "run_finished"
+      ]) ||
+    (form != null && form.run_finished);
 
   function escape_name(name: string) {
     //escape for use in html id
@@ -49,78 +61,160 @@
     <textarea
       name="receivers"
       id="receivers"
-      value={form?.receivers ?? data.run["receivers"] ?? ""}
+      value={form?.receivers ??
+        (data.run.annotations.length > 0
+          ? data.run.annotations[data.run.annotations.length - 1]["receivers"]
+          : "")}
       rows="3"
       required
     />
 
-    <!-- add date input with date 90 days in the future -->
-    <label for="deletion_date">Deletion date</label>
-    <input
-      type="date"
-      name="deletion_date"
-      id="date"
-      value={form?.date ??
-        data.run["deletion_date"] ??
-        iso_date(plus_months(new Date(), 3))}
-      min={date_min(
-        data.run["deletion_date"],
-        iso_date(plus_months(new Date(), 3))
-      )}
-      required
-    />
-    <br />
-
-    <div>
-      <label for="archive" style="display:inline"> Archive: </label><input
-        type="checkbox"
-        name="archive"
-        id="archive"
-        value="true"
-        bind:checked={do_archive}
-      />
-    </div>
-    <br />
-    {#if do_archive}
-      <label for="archive_date">Archive until</label>
-      <input
-        type="date"
-        name="archive_date"
-        id="archive_date"
-        value={form?.archive_date ??
-          data.run["archive_date"] ??
-          iso_date(plus_years(new Date(), 10))}
-        min={date_min(
-          data.run["archive_date"],
-          iso_date(plus_years(new Date(), 10))
-        )}
-        required
-      />
-    {/if}
-
     <label for="comment"
-      >Comments <span class="normal">(included in email)</span></label
+      >Public Comment <span class="normal">(included in email)</span></label
     >
     <textarea
       name="comment"
       id="comment"
-      value={form?.comment ?? data.run["comment"] ?? ""}
+      value={form?.comment ??
+        (data.run.annotations.length > 0
+          ? data.run.annotations[data.run.annotations.length - 1]["comment"]
+          : "")}
       rows="3"
     />
 
-    <label for="send_download_link" style="display:inline"
-      >Also send download link (in seperate email)</label
+    <label for="private_comment"
+      >'Private' Notes <span class="normal">(not included in email)</span
+      ></label
     >
-    <input
-      type="checkbox"
-      name="send_download_link"
-      id="send_download_link"
-      value="true"
-      bind:checked={send_download_link}
+    <textarea
+      name="private_comment"
+      id="private_comment"
+      value={form?.private_comment ??
+        (data.run.annotations.length > 0
+          ? data.run.annotations[data.run.annotations.length - 1][
+              "private_comment"
+            ]
+          : "")}
+      rows="3"
     />
-    <br />
 
-    <input type="submit" value="Submit" />
+    {#if data.run.annotations.length > 0 && data.run.annotations[data.run.annotations.length - 1]["run_finished"] === true}
+      <label>Run already marked finished (can't be undone)</label>
+    {:else}
+      <label for="run_finished" style="display:inline"
+        >Mark run as finished (and send email)</label
+      >
+
+      <input
+        type="checkbox"
+        name="run_finished"
+        id="run_finished"
+        value="true"
+        bind:checked={run_finished}
+      />
+      <br />
+    {/if}
+
+    {#if run_finished}
+      <div>
+        <label for="archive" style="display:inline"> Archive: </label><input
+          type="checkbox"
+          name="archive"
+          id="archive"
+          value="true"
+          bind:checked={do_archive}
+        />
+      </div>
+      {#if do_archive}
+        <label for="deletion_date">Archive after date</label>
+        <input
+          type="date"
+          name="deletion_date"
+          id="date"
+          value={form?.date ?? data.run["annotations"].length > 0
+            ? data.run["annotations"][data.run["annotations"].length - 1][
+                "deletion_date"
+              ]
+            : iso_date(
+                add_time_interval(new Date(), "earliest_deletion", data.times)
+              )}
+          min={date_min(
+            data.run["annotations"].length > 0
+              ? data.run["annotations"][data.run["annotations"].length - 1][
+                  "deletion_date"
+                ]
+              : iso_date(
+                  add_time_interval(new Date(), "earliest_deletion", data.times)
+                )
+          )}
+          required
+        />
+        <label for="archive_date">Archive until</label>
+        <input
+          type="date"
+          name="archive_date"
+          id="archive_date"
+          value={form?.archive_date ??
+            (data.run["annotations"].length > 0
+              ? data.run["annotations"][data.run["annotations"].length - 1][
+                  "archive_date"
+                ]
+              : null) ??
+            iso_date(add_time_interval(new Date(), "archive", data.times))}
+          min={date_min(
+            data.run["annotations"].length > 0
+              ? data.run["annotations"][data.run["annotations"].length - 1][
+                  "archive_date"
+                ]
+              : iso_date(add_time_interval(new Date(), "archive", data.times))
+          )}
+          required
+        />
+      {:else}
+        <label for="deletion_date">Deletion date</label>
+        <input
+          type="date"
+          name="deletion_date"
+          id="date"
+          value={form?.date ?? data.run["annotations"].length > 0
+            ? data.run["annotations"][data.run["annotations"].length - 1][
+                "deletion_date"
+              ]
+            : iso_date(
+                add_time_interval(new Date(), "earliest_deletion", data.times)
+              )}
+          min={date_min(
+            data.run["annotations"].length > 0
+              ? data.run["annotations"][data.run["annotations"].length - 1][
+                  "deletion_date"
+                ]
+              : iso_date(
+                  add_time_interval(new Date(), "earliest_deletion", data.times)
+                )
+          )}
+          required
+        />
+        <br />
+      {/if}
+
+      <label for="send_download_link" style="display:inline"
+        >Also send download link (in seperate email)</label
+      >
+      <input
+        type="checkbox"
+        name="send_download_link"
+        id="send_download_link"
+        value="true"
+        bind:checked={send_download_link}
+      />
+      <br />
+    {/if}
+
+    {#if run_finished}
+      <input type="submit" value="Submit & send mail" />
+    {:else}
+      <input type="submit" value="Submit" />
+    {/if}
   </form>
 {/if}
 
