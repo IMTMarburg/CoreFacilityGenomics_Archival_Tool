@@ -6,11 +6,11 @@ const config = {
 
   kit: {
     adapter: adapter(),
-
-    paths: {
-      base: "/cfgat",
-    },
   },
+  paths: {
+    base: "/cfgat",
+  },
+  baseUrl: "/cfgat",
 };
 
 export default config;
