@@ -7,6 +7,8 @@ import {
   load_tasks,
   load_workingdir_runs,
   check_emails,
+  load_times,
+  add_time_interval
 } from "$lib/util";
 
 export async function load() {
@@ -36,9 +38,13 @@ export async function load() {
     a["name"].localeCompare(b["name"]);
   });
 
+  let times = await load_times();
+
   let res = {
     runs: runs,
     last_requests,
+	valid_until: add_time_interval(new Date(), 'download_retention', times),
+	valid_until_interval: times['download_retention'],
   };
   return res;
 }

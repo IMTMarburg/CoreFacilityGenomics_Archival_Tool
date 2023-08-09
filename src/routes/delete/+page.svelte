@@ -101,6 +101,7 @@
   </table>
 {/if}
 
+<!--
 <h2>Currently not yet deletable</h2>
 {#each data.non_deletable_runs as run}
   <p>
@@ -120,6 +121,7 @@
     />
   </p>
 {/each}
+-->
 
 <style>
   th,

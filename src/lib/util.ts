@@ -287,48 +287,6 @@ export async function hash_string(message: string): string {
   return hash;
 }
 
-export async function pending_archivals() {
-  let open_tasks = [];
-  let tasks = await load_tasks();
-  for (let task of tasks) {
-    if (
-      task["type"] == "archive_run" &&
-      (task["status"] == "open" || task["status"] == "processing")
-    ) {
-      open_tasks.push(task);
-    }
-  }
-  return open_tasks;
-}
-
-export async function pending_archive_deletions() {
-  let open_tasks = [];
-  let tasks = await load_tasks();
-  for (let task of tasks) {
-    if (
-      task["type"] == "remove_from_archive" &&
-      (task["status"] == "open" || task["status"] == "processing")
-    ) {
-      open_tasks.push(task);
-    }
-  }
-  return open_tasks;
-}
-
-export async function pending_restores() {
-  let open_tasks = [];
-  let tasks = await load_tasks();
-  for (let task of tasks) {
-    if (
-      task["type"] == "restore_run" &&
-      (task["status"] == "open" || task["status"] == "processing")
-    ) {
-      open_tasks.push(task);
-    }
-  }
-  return open_tasks;
-}
-
 export function toIsoStringTZO(date, include_time) {
   var tzo = -date.getTimezoneOffset();
   let pad = function (num) {

@@ -1,10 +1,16 @@
 #!/usr/bin/env bash
-DELETED_DIR=./deleted/ \
+mkdir -p data/events
+mkdir -p data/tasks
+mkdir -p runs/downloads
+mkdir -p runs/deleted
+mkdir -p runs/working
+mkdir -p runs/archive
+
 DATA_DIR=./data \
-WORKING_DIR=./working \
-ARCHIVE_DIR=./archive/ \
+WORKING_DIR=./runs/working \
+ARCHIVE_DIR=./runs/archive/ \
 DELETE_DIR=./deleted \
-DOWNLOAD_DIR=./downloads \
+DOWNLOAD_DIR=./runs/downloads \
 SECRETS_FILE=/secrets/cfat.json \
 TEMPLATES_PATH='./static/mail_templates.toml' \
 TIMES_PATH='./static/times.toml' \

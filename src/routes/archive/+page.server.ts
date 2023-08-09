@@ -1,41 +1,13 @@
 import { fail } from "@sveltejs/kit";
 
-import {
-  add_task,
-  load_archived_runs,
-  load_tasks,
-  load_workingdir_runs,
-  pending_archivals,
-  update_task,
-} from "$lib/util";
+import { add_task } from "$lib/util";
+
+import { load_archivable_runs, pending_archivals } from "$lib/data";
 
 export async function load() {
   let open_tasks = await pending_archivals();
-  let named_open_tasks = {};
-  for (let deletion of open_tasks) {
-    named_open_tasks[deletion["run"]] = true;
-  }
-
-  let archived = await load_archived_runs();
-  let named_archived = {};
-  for (let run of archived) {
-    named_archived[run["name"]] = true;
-  }
-
-  let runs = await load_workingdir_runs();
-  //filter runs to only those that are not in the process of being deleted
-  runs = runs.filter((run) => {
-    return named_open_tasks[run.name] == undefined &&
-      named_archived[run.name] == undefined;
-  });
-  runs = runs.map((run, idx) => {
-	  run.deleteable = run.earliest_deletion_timestamp < ((new Date().getTime()) / 1000);
-	  return run});
-	console.log(runs);
-
-
   return {
-    runs: runs,
+    runs: await load_archivable_runs(),
     open_tasks: open_tasks,
   };
 }
@@ -52,9 +24,8 @@ export const actions = {
         if (run.name == form_data.get("run")) {
           found = true;
           found_run = run;
-          found_deleteable =
-            found_run.earliest_deletion_timestamp <
-              ((new Date().getTime()) / 1000);
+          found_deleteable = found_run.earliest_deletion_timestamp <
+            ((new Date().getTime()) / 1000);
           break;
         }
       }

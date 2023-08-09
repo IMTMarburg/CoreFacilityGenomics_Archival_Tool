@@ -5,11 +5,9 @@ import {
   load_archived_runs,
   load_tasks,
   load_workingdir_runs,
-  pending_archivals,
-  pending_archive_deletions,
-  pending_restores,
   update_task,
 } from "$lib/util";
+import { pending_archive_deletions, pending_restores } from "$lib/data";
 
 export async function load() {
   let open_tasks = await pending_restores();

@@ -86,7 +86,7 @@
 
   <label for="date"
     >Valid until
-    <span class="normal"> (default: 90 days) </span>
+    <span class="normal"> (default: {data.valid_until_interval['value']} {data.valid_until_interval['unit']}) </span>
   </label>
 
   <!-- add date input with date 90 days in the future -->
@@ -94,7 +94,7 @@
     type="date"
     name="date"
     id="date"
-    value={form?.date ?? iso_date(plus_days(new Date(), 90))}
+    value={form?.date ?? iso_date(data.valid_until)}
     min={iso_date(plus_days(new Date(), 1))}
     required
   />

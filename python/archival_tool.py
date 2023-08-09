@@ -510,7 +510,8 @@ def discover_runs():
             else:
                 raise ValueError("could not extract date", rta_complete)
 
-        alignment_detection_file = rta_complete.parent / "CompletedJobInfo.xml"
+        alignment_detection_file = rta_complete.parent / "Alignment_1"
+        print(alignment_detection_file)
         if alignment_detection_file.exists():
             if not run in current:
                 # we exploit that it's parents before children in globbing with **
