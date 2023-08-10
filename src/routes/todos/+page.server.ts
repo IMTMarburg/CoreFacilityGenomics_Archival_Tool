@@ -1,9 +1,9 @@
 
 
-import {load_tasks} from '$lib/util';
+import {load_todos} from '$lib/data';
 
 export async function load() {
   return {
-    tasks: (await load_tasks()).reverse(),
+    todos: (await load_todos()),
   };
 }

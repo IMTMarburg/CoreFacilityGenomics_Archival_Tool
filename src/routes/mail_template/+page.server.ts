@@ -34,30 +34,4 @@ export async function load() {
   };
 }
 export const actions = {
-  change: async ({ cookies, request, locals }) => {
-    const form_data = await request.formData();
-    try {
-      let template = form_data.get("template");
-      if ((template ?? "").indexOf("%URL%") == -1) {
-        throw new Error("Template must contain %URL%" + template);
-      }
-      let old_template = await load_template().catch(err => default_template);
-      if (old_template != template) {
-        await save_template(template);
-        await add_event("template_changed", {
-          "old_template": old_template,
-        }, locals.user);
-
-	  return {success: "Saved"};
-      } else {
-
-	  return {success: "Unchanged"};
-	  }
-    } catch (error) {
-      return fail(422, {
-        template: form_data.get("template"),
-        error: error.message,
-      });
-    }
-  },
 };

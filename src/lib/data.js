@@ -87,7 +87,7 @@ export async function load_archivable_runs() {
     if (run["annotations"].length > 0) {
       let last = run["annotations"].length - 1;
       let earliest_deletion_timestamp = isodate_to_timestamp(
-        run["annotations"]["last"]["deletion_date"],
+        run["annotations"][last]["deletion_date"],
       );
       run.deleteable =
         earliest_deletion_timestamp < ((new Date().getTime()) / 1000);
@@ -179,6 +179,18 @@ export async function load_archive_deletable_runs() {
   return runs;
 }
 
+export function any_finished(annotations) {
+	//write to stdout
+	console.log(annotations);
+	for (var idx in annotations) {
+		if (annotations[idx]["run_finished"]) {
+			return true;
+		}
+	}
+	return false;
+}
+
+
 export async function load_unannoteted_and_unfinished_annotation_runs(runs) {
   var unannotated_runs = runs.filter((run) =>
     run[1]["annotations"].length == 0
@@ -202,6 +214,13 @@ export async function load_todos() {
     runs = Object.entries(runs);
 
 	let uu = await load_unannoteted_and_unfinished_annotation_runs(runs);
+	let res = {
+		'no annotation': uu['unannotated_runs'],
+		'unfinished annotion': uu['unfinished_runs'],
+		'archive': await load_archivable_runs(),
+		'delete': await load_deletable_runs(),
+		'delete_from_archive': await load_archive_deletable_runs(),
+	};
 
-	return uu;
+	return res;
 }

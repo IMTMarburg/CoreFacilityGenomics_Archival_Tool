@@ -10,7 +10,6 @@ const config = {
   paths: {
     base: "/cfgat",
   },
-  baseUrl: "/cfgat",
 };
 
 export default config;

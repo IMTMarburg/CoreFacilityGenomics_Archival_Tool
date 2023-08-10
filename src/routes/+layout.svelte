@@ -6,6 +6,6 @@
 <svelte:head>
 	<base href="/cfgat">
 </svelte:head>
-<h1><a href="../">Sequencer archival tool</a>
-</h1>
+<h1><a href="../">Sequencer archival tool</a></h1>
+base is: {base}
 <slot />
