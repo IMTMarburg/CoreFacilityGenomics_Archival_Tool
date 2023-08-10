@@ -63,7 +63,7 @@
     <input type="submit" value="Delete" class="danger" />
   {/if}
 </form>
-(if you're missing a run, it might be currently being<a href="{base}/archive"
+(if you're missing a run, it might be currently being <a href="{base}/archive"
   >archived</a
 >)
 
@@ -101,6 +101,7 @@
   </table>
 {/if}
 
+<!--
 <h2>Currently not yet deletable</h2>
 {#each data.non_deletable_runs as run}
   <p>
@@ -120,6 +121,7 @@
     />
   </p>
 {/each}
+-->
 
 <style>
   th,

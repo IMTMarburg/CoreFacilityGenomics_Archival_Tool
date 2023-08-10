@@ -2,12 +2,12 @@
   import { base } from "$app/paths";
   import DatePeriod from "$lib/components/DatePeriod.svelte";
   import RunDisplay from "$lib/components/RunDisplay.svelte";
-  import { iso_date, event_details, hash_string } from "$lib/util";
+  import { iso_date, event_details, hash_string ,plus_days } from "$lib/util";
   import * as EmailValidator from "email-validator";
   export let data;
   export let form;
 
-  let chosen_run = form?.run ?? "";
+  let chosen_run = form?.run ?? [];
 
   function escape_name(name: string) {
     //escape for use in html id
@@ -17,10 +17,15 @@
     );
   }
 
-  function plus_days(date: Date, days: number) {
-    const new_date = new Date(date);
-    new_date.setDate(new_date.getDate() + days);
-    return new_date;
+    function forward_complete_click(ev) {
+	  let run = this.value.split("___")[0];
+	  //now find each input that starts with that value
+	  let inputs = document.querySelectorAll("input");
+	  for (let i = 0; i < inputs.length; i++) {
+		  if (inputs[i].value.startsWith(run)) {
+			  inputs[i].checked = ev.target.checked;
+		  }
+	  }
   }
 </script>
 
@@ -38,30 +43,50 @@
     <p class="error">{form.error}</p>
   {/if}
 
-  <label> Run to include </label>
+  <label> Runs to include </label>
   {#if data.runs.length == 0}
     <p>No runs currently in working set.</p>
   {:else}
     {#each data.runs as run}
+	<div  class="evenodd" style="border-bottom: 1px dashed grey;">
       <input
-        type="radio"
-        name="run"
+        type="checkbox"
+        name="to_send"
         id="run_{escape_name(run.name)}"
-        value={run.name}
+		value="{run.name}___complete"
         bind:group={chosen_run}
+		on:click={forward_complete_click}
       />
-      <label for="run_{escape_name(run.name)}">{run.name}
+      <label for="run_{escape_name(run.name)}">{run.name} (complete)
 
 	  </label>
 	  <RunDisplay data={run} label="info" />
       <br />
+	  {#each run.alignments as alignment}
+	  <span 
+		  style="padding-left:1em;"
+		  />
+	  <input
+		type="checkbox"
+		name="to_send"
+		id="run_{escape_name(run.name)}___{alignment}"
+		value="{run.name}___{alignment}"
+		bind:group={chosen_run}
+	  />
+	  <label for="run_{escape_name(run.name)}___{alignment}"
+
+	  >{run.name} ({alignment})
+	  </label>
+	  <br />
+	  {/each}
+	</div>
     {/each}
   {/if}
   <br />
 
   <label for="date"
     >Valid until
-    <span class="normal"> (default: 90 days) </span>
+    <span class="normal"> (default: {data.valid_until_interval['value']} {data.valid_until_interval['unit']}) </span>
   </label>
 
   <!-- add date input with date 90 days in the future -->
@@ -69,7 +94,7 @@
     type="date"
     name="date"
     id="date"
-    value={form?.date ?? iso_date(plus_days(new Date(), 90))}
+    value={form?.date ?? iso_date(data.valid_until)}
     min={iso_date(plus_days(new Date(), 1))}
     required
   />
@@ -104,16 +129,22 @@
 {:else}
   <table>
     <tr>
-      <th>Run</th>
+      <th>Contents</th>
       <th>Date</th>
+      <th>Expires after</th>
       <th>Status</th>
       <th>Receiver</th>
       <th>URL</th>
     </tr>
     {#each data.last_requests as task}
       <tr>
-        <td>{task.run}</td>
+        <td>
+		{#each task.to_send as run_alignment }
+			{run_alignment.replace("___", " (")})<br />
+		{/each}
+		</td>
         <td><DatePeriod timestamp={task.timestamp} include_time="true" /></td>
+        <td><DatePeriod timestamp={task.invalid_after} include_time="true" /></td>
         <td>{task.status}</td>
         <td
           >{task.receivers}

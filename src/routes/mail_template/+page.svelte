@@ -1,42 +1,12 @@
 <script lang="ts">
   export let data;
-  export let form;
-  let template = (form ?? {})["template"] ?? data.template;
-
-  function handle_key_down(ev) {
-    if (form != null) {
-      delete form.success;
-      form = form;
-    }
-  }
 </script>
 
-<h1>Change mail template</h1>
+<h1>Pick a mail template to change</h1>
 
-<p>Available replacements:</p>
 <ul>
-  <li>%URL% - the link to the download</li>
-  <li>%DELETION_DATE% - the date after which the link is no longer valid</li>
-  <li>%DAYS% - the number of days this link will stay valid</li>
-  <li>%COMMENT% - the comment from the send-link form</li>
+	<li><a href="mail_template/download_ready">Download ready</a></li>
+	<li><a href="mail_template/run_completed">Run completed</a></li>
+	<li><a href="mail_template/run_about_to_be_deleted">Run about to be deleted</a></li>
+	<li><a href="mail_template/run_about_to_be_removed_from_archive">Run about to be removed from archive</a></li>
 </ul>
-
-<form method="POST" action="?/change">
-  {#if form?.error}
-    <p class="error">{form.error}</p>
-  {/if}
-
-  <textarea
-    bind:value={template}
-    rows="20"
-    cols="80"
-    placeholder="Enter template here"
-    required
-    name="template"
-    on:keydown={handle_key_down}
-  />
-  <input type="submit" value="Save" />
-  {#if form?.success}
-    <p class="success">{form.success}!</p>
-  {/if}
-</form>

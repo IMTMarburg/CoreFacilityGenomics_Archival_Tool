@@ -3,6 +3,9 @@
 </script>
 
 
-<h1><a href="{base}/">Sequencer archival tool</a>
+<svelte:head>
+	<base href="/cfgat">
+</svelte:head>
+<h1><a href="../">Sequencer archival tool</a>
 </h1>
 <slot />

@@ -2,6 +2,8 @@ import process from "process";
 import fs from "fs";
 const { subtle } = globalThis.crypto;
 import { add_styles } from "svelte/internal";
+import toml from "toml";
+import * as EmailValidator from "email-validator";
 
 export function iso_date(date: Date) {
   const isoDate = date.toISOString().split("T")[0];
@@ -209,15 +211,17 @@ export async function load_runs() {
         download_count: 0,
         in_working_set: true,
         earliest_deletion_timestamp: parseInt(ev.earliest_deletion_timestamp),
-		sample_sheet: ev.sample_sheet,
+        sample_sheet: ev.sample_sheet,
+        alignments: [],
+        annotations: [],
       };
     } else if (ev.type == "run_download_provided") {
-      runs[ev.run]["download_available"] = true;
-      runs[ev.run]["download_name"] = ev.filename;
+      //g     runs[ev.run]["download_available"] = true;
+      //runs[ev.run]["download_name"] = ev.filename;
     } else if (ev.type == "run_download_expired") {
       runs[ev.run]["download_available"] = false;
     } else if (ev.type == "run_downloaded") {
-      runs[ev.run]["download_count"] += 1;
+      //runs[ev.run]["download_count"] += 1;
     } else if (ev.type == "run_deleted_from_working_set") {
       runs[ev.run]["in_working_set"] = false;
     } else if (ev.type == "run_restored_to_working_set") {
@@ -229,6 +233,16 @@ export async function load_runs() {
       runs[ev.run]["archive_size"] = ev.size;
     } else if (ev.type == "run_deleted_from_archive") {
       runs[ev.run]["in_archive"] = false;
+    } else if (ev.type == "alignment_discovered") {
+      runs[ev.run]["alignments"].push(ev.alignment);
+    } else if (ev.type == "alignment_removed") {
+      //remove alignment from list
+      let index = runs[ev.run]["alignments"].indexOf(ev.alignment);
+      if (index > -1) {
+        runs[ev.run]["alignments"].splice(index, 1);
+      }
+    } else if (ev.type == "run_annotated") {
+      runs[ev.run]["annotations"].push(ev.annotation);
     }
   }
   //runs is an object, not an array
@@ -273,78 +287,160 @@ export async function hash_string(message: string): string {
   return hash;
 }
 
-export async function pending_archivals() {
-  let open_tasks = [];
-  let tasks = await load_tasks();
-  for (let task of tasks) {
-    if (
-      task["type"] == "archive_run" &&
-      (task["status"] == "open" || task["status"] == "processing")
-    ) {
-      open_tasks.push(task);
-    }
-  }
-  return open_tasks;
-}
-
-export async function pending_archive_deletions() {
-  let open_tasks = [];
-  let tasks = await load_tasks();
-  for (let task of tasks) {
-    if (
-      task["type"] == "remove_from_archive" &&
-      (task["status"] == "open" || task["status"] == "processing")
-    ) {
-      open_tasks.push(task);
-    }
-  }
-  return open_tasks;
-}
-
-export async function pending_restores() {
-  let open_tasks = [];
-  let tasks = await load_tasks();
-  for (let task of tasks) {
-    if (
-      task["type"] == "restore_run" &&
-      (task["status"] == "open" || task["status"] == "processing")
-    ) {
-      open_tasks.push(task);
-    }
-  }
-  return open_tasks;
-}
-
 export function toIsoStringTZO(date, include_time) {
-    var tzo = -date.getTimezoneOffset();
-    let pad = function (num) {
-      return (num < 10 ? "0" : "") + num;
-    };
+  var tzo = -date.getTimezoneOffset();
+  let pad = function (num) {
+    return (num < 10 ? "0" : "") + num;
+  };
 
-    if (include_time) {
-      return (
-        date.getFullYear() +
-        "-" +
-        pad(date.getMonth() + 1) +
-        "-" +
-        pad(date.getDate()) +
-        " " +
-        pad(date.getHours()) +
-        ":" +
-        pad(date.getMinutes()) +
-        ":" +
-        pad(date.getSeconds())
-      );
-    } else {
-    }
-
+  if (include_time) {
     return (
       date.getFullYear() +
       "-" +
       pad(date.getMonth() + 1) +
       "-" +
-      pad(date.getDate())
+      pad(date.getDate()) +
+      " " +
+      pad(date.getHours()) +
+      ":" +
+      pad(date.getMinutes()) +
+      ":" +
+      pad(date.getSeconds())
     );
+  } else {
   }
 
+  return (
+    date.getFullYear() +
+    "-" +
+    pad(date.getMonth() + 1) +
+    "-" +
+    pad(date.getDate())
+  );
+}
 
+export async function pending_sorts() {
+  let open_tasks = [];
+  let tasks = await load_tasks();
+  for (let task of tasks) {
+    if (
+      task["type"] == "sort_by_date" &&
+      (task["status"] == "open" || task["status"] == "processing")
+    ) {
+      open_tasks.push(task);
+    }
+  }
+  return open_tasks;
+}
+
+export async function load_template(name: string, default_text: string) {
+  let events = await load_events();
+  let result = default_text;
+  for (let ev of events) {
+    if ((ev.type == "template_changed") && (ev.name == name)) {
+      result = ev.text;
+    }
+  }
+  return result;
+}
+
+export async function save_template(
+  name: string,
+  template: string,
+  user: string,
+): Promise<Boolean> {
+  let old_template = await load_template(name, "");
+  if (old_template != template) {
+    await add_event("template_changed", {
+      "name": name,
+      "text": template,
+    }, user);
+    return true;
+  } else {
+    return false;
+  }
+}
+
+export function plus_days(date: Date, days: number) {
+  const new_date = new Date(date);
+  new_date.setDate(new_date.getDate() + days);
+  return new_date;
+}
+
+export function plus_months(date: Date, months: number) {
+  const new_date = new Date(date);
+  new_date.setMonth(new_date.getMonth() + months);
+  return new_date;
+}
+
+export function plus_years(date: Date, years: number) {
+  const new_date = new Date(date);
+  new_date.setFullYear(new_date.getFullYear() + years);
+  return new_date;
+}
+
+export function date_min(dateA: Date, dateB: Date) {
+  if (dateA == null) {
+    return dateB;
+  }
+  if (dateB == null) {
+    return dateA;
+  }
+  if (dateA < dateB) {
+    return dateA;
+  } else {
+    return dateB;
+  }
+}
+
+export function check_emails(newline_seperarated_addreses: string): [string] {
+  let nsa = newline_seperarated_addreses.trim();
+  if (
+    (nsa.length == 0) ||
+    (nsa.indexOf("@") == -1)
+  ) {
+    throw new Error("Receivers did not contain an @");
+  }
+  let individuals = nsa.split("\n");
+  let receivers = [];
+  for (let individual of individuals) {
+    individual = individual.trim();
+    if (individual.length != 0) {
+      if (!EmailValidator.validate(individual)) {
+        throw new Error("Invalid email address: '" + individual + "'");
+      }
+      receivers.push(individual);
+    }
+  }
+  return receivers;
+}
+
+export function load_times() {
+  let toml_str = fs.readFileSync("./static/times.toml").toString();
+  let times = toml.parse(toml_str);
+  return times;
+}
+
+export function add_time_interval(
+  start_time: Date,
+  interval_name: string,
+  times,
+) {
+  let unit = times[interval_name]["unit"];
+  let value = times[interval_name]["value"];
+  if (unit == "seconds") {
+    return new Date(start_time.getTime() + value * 1000);
+  } else if (unit == "minutes") {
+    return new Date(start_time.getTime() + value * 1000 * 60);
+  } else if (unit == "hours") {
+    return new Date(start_time.getTime() + value * 1000 * 60 * 60);
+  } else if (unit == "days") {
+    return new Date(start_time.getTime() + value * 1000 * 60 * 60 * 24);
+  } else if (unit == "weeks") {
+    return new Date(start_time.getTime() + value * 1000 * 60 * 60 * 24 * 7);
+  } else if (unit == "months") {
+    return plus_months(start_time, value);
+  } else if (unit == "years") {
+    return plus_years(start_time, value);
+  }
+}

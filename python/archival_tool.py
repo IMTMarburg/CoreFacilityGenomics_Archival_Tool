@@ -1,4 +1,9 @@
 import shutil
+import dateutil.relativedelta
+import unittest
+import sys
+import toml
+import hashlib
 import tempfile
 from email.mime.text import MIMEText
 import smtplib
@@ -12,10 +17,6 @@ import json
 from pathlib import Path
 import os
 
-min_archive_years = 0
-minimum_days_to_keep = 90
-minutes_before_starting_deletion = 1
-
 download_dir = Path(os.environ["DOWNLOAD_DIR"])
 working_dir = Path(os.environ["WORKING_DIR"])
 deleted_dir = Path(os.environ["DELETE_DIR"])
@@ -25,6 +26,11 @@ event_dir = data_dir / "events"
 task_dir = data_dir / "tasks"
 secret_file = Path(os.environ["SECRETS_FILE"])
 
+
+templates = toml.load(open(Path(os.environ["TEMPLATES_PATH"])))
+
+times = toml.load(open(Path(os.environ["TIMES_PATH"])))
+
 default_template = """
 Your download is available at %URL%.
 
@@ -33,7 +39,6 @@ It will be available until %DELETION_DATE% which is %DAYS% days from now.
 Further comments: %COMMENT%
 """
 
-download_cleanup_timeout_seconds = 3600 * 24 * 31
 
 _events = None
 
@@ -124,10 +129,13 @@ def random_text(n):
     return "".join(random.choice(string.ascii_lowercase) for i in range(n))
 
 
-def find_last_provided_download(run):
+def find_last_provided_download(to_send):
     last_provided_download = None
     for event in load_events():
-        if event.get("type", "") == "run_download_provided" and event["run"] == run:
+        if (
+            event.get("type", "") == "run_download_provided"
+            and event["to_send"] == to_send
+        ):
             last_provided_download = event["filename"]
         # can't do it like that because of the nesting
         # elif event['type'] == "run_download_removed" and event['run'] == run:
@@ -139,7 +147,7 @@ def find_last_provided_download(run):
         return None
 
 
-def tar_output_folder(input_folder, output_file, exclude_data_folder=False):
+def tar_output_folders(input_folders, output_file):
     # tar,b tu execlude the Data folder.
     cmd = [
         "tar",
@@ -147,12 +155,16 @@ def tar_output_folder(input_folder, output_file, exclude_data_folder=False):
         "zstd",
         "-cf",
         str(output_file.absolute()),
-        str(input_folder.name),
     ]
-    has_any_fastq_files = any((True for x in input_folder.glob("**/*.fastq*")))
-    if exclude_data_folder and has_any_fastq_files:
-        cmd.insert(1, ["--exclude", "Data"])
-    subprocess.check_call(cmd, cwd=input_folder.parent)
+    for ip in input_folders:
+        # remove working/ from start
+        ip = ip.relative_to(working_dir)
+        cmd.append(str(ip))
+    print(cmd)
+    # has_any_fastq_files = any((True for x in input_folder.glob("**/*.fastq*")))
+    # if exclude_data_folder and has_any_fastq_files:
+    #     cmd.insert(1, ["--exclude", "Data"])
+    subprocess.check_call(cmd, cwd=working_dir)
 
 
 def tar_and_encrypt(input_folder, output_file):
@@ -168,7 +180,8 @@ def tar_and_encrypt(input_folder, output_file):
     tar_cmd = [
         "tar",
         "--exclude",
-        "Data",
+        # "Data",
+        "--exclude={*.fastq.gz}",
         "--use-compress-program",
         "zstd -19",
         "-c",
@@ -227,15 +240,31 @@ def decrypt_and_untar(encrypted_file, output_folder, key):
         raise
 
 
-def find_run(run):
+def find_run(run, include_archived=False):
     candidate = working_dir / run
     if candidate.exists():
         return candidate
     else:
-        for rta_complete in working_dir.glob("**/RTAComplete.txt"):
-            if rta_complete.parent.name == run:
+        if include_archived:
+            query = "**/RTAComplete.txt.sha256"
+        else:
+            query = "**/RTAComplete.txt"
+        for rta_complete in working_dir.glob(query):
+            if (
+                rta_complete.parent.name == run
+                and not (rta_complete.parent / "CompletedJobInfo.xml").exists()
+            ):
                 return rta_complete.parent
     raise ValueError("Not found")
+
+
+def find_run_alignment(run, alignment):
+    run_dir = find_run(run)
+    candidate = run_dir / run_dir.name / alignment
+    if candidate.exists():
+        return candidate
+    else:
+        raise ValueError("Alignment not found", run, alignment, candidate)
 
 
 def get_template():
@@ -268,7 +297,7 @@ def send_email(receivers, invalidation_timestamp, comment, filename):
         message = message.replace("%COMMENT%", "(no comment provided)")
 
     msg = MIMEText(message)
-    msg["Subject"] = "Sequencing run finished"
+    msg["Subject"] = "Sequencing run ready for download"
     msg["From"] = sender
     msg["To"] = ",".join(receivers)
     s = smtplib.SMTP(smtp_server, smtp_port)
@@ -282,19 +311,32 @@ def send_email(receivers, invalidation_timestamp, comment, filename):
 
 
 def provide_download_link(task):
+    to_send = task["to_send"]
+    if len(to_send) == 0:
+        name = to_send[0].split("___")[0]
+    else:
+        name = "multiple_sequencing_runs"
+    name = safe_name(name)
+
     output_name = (
-        time.strftime("%Y-%m-%d_%H-%M-%S_")
-        + safe_name(task["run"])
-        + "_"
-        + random_text(5)
-        + ".tar.zstd"
+        time.strftime("%Y-%m-%d_%H-%M-%S_") + name + "_" + random_text(5) + ".tar.zstd"
     )
-    last_provided_download = find_last_provided_download(task["run"])
+    last_provided_download = find_last_provided_download(task["to_send"])
     try:
         if last_provided_download:
             os.link(download_dir / last_provided_download, download_dir / output_name)
         else:
-            tar_output_folder(find_run(task["run"]), download_dir / output_name)
+            # todo: this is what we need to implement next
+            print(task)
+            paths_to_include = []
+            for run_alignment in to_send:
+                run, alignment = run_alignment.split("___")
+                if alignment == "complete":
+                    paths_to_include.append(find_run(run))
+                else:
+                    paths_to_include.append(find_run_alignment(run, alignment))
+            print(paths_to_include)
+            tar_output_folders(paths_to_include, download_dir / output_name)
         if task["receivers"]:
             try:
                 email = send_email(
@@ -312,7 +354,7 @@ def provide_download_link(task):
         add_event(
             {
                 "type": "run_download_provided",
-                "run": task["run"],
+                "run": task["to_send"],
                 "filename": str(output_name),
                 "finish_time": int(time.time()),
                 "details": {"receivers": task["receivers"]},
@@ -420,9 +462,23 @@ def extract_illumina_date(input_str):
     return None
 
 
+def load_sample_sheet(dir):
+    sample_sheet = ""
+    sample_sheet_filename = dir / "SampleSheet.csv"
+    if sample_sheet_filename.exists():
+        try:
+            sample_sheet = sample_sheet_filename.read_text()
+        except:
+            sample_sheet = "Could not be read"
+    return sample_sheet
+
+
 def discover_runs():
     ever = set()
     current = set()
+    current_alignments = set()
+    alignments_seen = set()
+
     for event in load_events():
         t = event.get("type", "")
         if t == "run_discovered" or t == "run_restored_to_working_set":
@@ -430,7 +486,22 @@ def discover_runs():
             current.add(event["run"])
         elif t == "run_deleted_from_working_set":
             current.remove(event["run"])
-    for rta_complete in working_dir.glob("**/RTAComplete.txt"):
+            current_alignments = {
+                (run, alignment)
+                for run, alignment in current_alignments
+                if run != event["run"]
+            }
+        elif t == "alignment_discovered":
+            # alignments_ever.add((event["run"], event["alignment"]))
+            current_alignments.add((event["run"], event["alignment"]))
+        elif t == "alignment_removed":
+            current_alignments.remove((event["run"], event["alignment"]))
+
+    # make sure we get the runs before the alignments
+    q = sorted(
+        working_dir.glob("**/RTAComplete.txt"), key=lambda x: (str(x).count("/"), x)
+    )
+    for rta_complete in q:
         run = rta_complete.parent.name
         run_finish_date = extract_illumina_date(rta_complete.read_text())
         if not run_finish_date:
@@ -438,44 +509,126 @@ def discover_runs():
                 run_finish_date = rta_complete.stat().st_mtime
             else:
                 raise ValueError("could not extract date", rta_complete)
-        sample_sheet = ""
-        sample_sheet_filename = rta_complete.parent / "SampleSheet.csv"
-        if sample_sheet_filename.exists():
-            try:
-                sample_sheet = sample_sheet_filename.read_text()
-            except:
-                sample_sheet = "Could not be read"
 
-        if run not in ever:
-            add_event(
-                {
-                    "type": "run_discovered",
-                    "run": str(run),
-                    "run_finish_date": run_finish_date,
-                    "earliest_deletion_timestamp": run_finish_date
-                    + minimum_days_to_keep * 24 * 60 * 60,
-                    "sample_sheet": sample_sheet,
-                }
-            )
-        elif run not in current:
-            add_event({"type": "run_restored_to_working_set", "run": str(run)})
+        alignment_detection_file = rta_complete.parent / "Alignment_1"
+        print(alignment_detection_file)
+        if alignment_detection_file.exists():
+            if not run in current:
+                # we exploit that it's parents before children in globbing with **
+                print(current, run)
+                raise ValueError("run had alignment, but is not in current?!)")
+            for possibly_alignment_dir in rta_complete.parent.glob("*"):
+                if (
+                    possibly_alignment_dir.is_dir()
+                    and possibly_alignment_dir.name.startswith("Alignment_")
+                ):
+                    al = (run, possibly_alignment_dir.name)
+                    alignments_seen.add(al)
+                    if al not in current_alignments:
+                        # I'm going to assume that it's *done*
+                        # at this poin, since we had CompletedJobInfo.xml...
+                        for filename in possibly_alignment_dir.glob("**/*.fastq.gz"):
+                            store_hash(filename)
+                        current_alignments.add(al)
+                        add_event(
+                            {
+                                "type": "alignment_discovered",
+                                "alignment": possibly_alignment_dir.name,
+                                "run": str(run),
+                                "sample_sheet": load_sample_sheet(rta_complete.parent),
+                            }
+                        )
+        else:
+            # it is a run
+
+            if run not in ever:
+                add_event(
+                    {
+                        "type": "run_discovered",
+                        "run": str(run),
+                        "run_finish_date": run_finish_date,
+                        "sample_sheet": load_sample_sheet(rta_complete.parent),
+                    }
+                )
+                current.add(str(run))
+                ever.add(str(run))
+            elif run not in current:
+                current.add(str(run))
+                add_event({"type": "run_restored_to_working_set", "run": str(run)})
+    for al in current_alignments.difference(alignments_seen):
+        add_event(
+            {
+                "type": "alignment_removed",
+                "run": str(al[0]),
+                "alignment": str(al[1]),
+            }
+        )
 
 
-def delete_run(task):
+def store_hash(filename):
+    hashfile = filename.with_suffix(filename.suffix + ".sha256")
+    if not hashfile.exists():
+        h = hashlib.sha256()
+        with open(filename, "rb") as op:
+            bs = 50 * 1024 * 1024
+            block = op.read(bs)
+            while block:
+                h.update(block)
+                block = op.read(bs)
+        hashfile.write_text(h.hexdigest())
+
+
+def delete_run(task):  # from working dir.
     source = find_run(task["run"])
     target = deleted_dir / task["run"]
     shutil.copytree(source, target, dirs_exist_ok=True)
-    shutil.rmtree(source)
+    # we only remove the data intensive files,
+    # keeping the run folder far statistics etc as it is.
+    # and since I'm paranoid, we're also keeping a hash
+    # of each file.
+    # shutil.rmtree(source)
+
+    files = list()
+    files.extend(source.glob("**/*.fastq.gz"))
+    data_path = source / "Data" / "Intensities"
+    files.extend(data_path.glob("**/*"))
+    files.extend(
+        source.glob("**/RTAComplete.txt")
+    )  # otherwise we redetect the alignments
+
+    for filename in files:
+        if filename.is_file():
+            store_hash(filename)
+            filename.unlink()
+
     add_event({"type": "run_deleted_from_working_set", "run": task["run"]})
 
+
+def add_time_interval(start_datetime, interval_name):
+    value= times[interval_name]['value']
+    unit = times[interval_name]['unit']
+    if unit == 'seconds':
+        return start_datetime + datetime.timedelta(seconds=value)
+    elif unit == 'minutes':
+        return start_datetime + datetime.timedelta(minutes=value)
+    elif unit == 'hours':
+        return start_datetime + datetime.timedelta(hours=value)
+    if unit == 'days':
+        return start_datetime + datetime.timedelta(days=value)
+    elif unit == 'weeks':
+        return start_datetime + datetime.timedelta(weeks=value)
+    elif unit == 'months':
+        return start_datetime + dateutil.relativedelta.relativedelta(months=value)
+    elif unit == 'years':
+        return start_datetime + dateutil.relativedelta.relativedelta(years=value)
 
 def archive_run(task):
     source = find_run(task["run"])
     source_folder = str(source.relative_to(working_dir).parent)
     target = archived_dir / (safe_name(task["run"]) + ".tar.zstd.age")
     key, size = tar_and_encrypt(source, target)
-    today = datetime.date.today()
-    end_date = today.replace(year=today.year + min_archive_years, day=today.day + 1)
+    today = datetime.datetime.today()
+    end_date = add_time_interval(today, 'archive')
     end_timestamp = int(time.mktime(end_date.timetuple()))
     add_event(
         {
@@ -497,9 +650,15 @@ def unarchive_run(task):
         if ev["type"] == "run_archived" and ev["run"] == task["run"]:
             source = ev["filename"]
             key = ev["key"]
-            target = working_dir / ev["source_folder"]
-            target.parent.mkdir(exist_ok=True, parents=True)
-            if (target / ev["run"]).exists():
+            # the tarstarts with ./run_name.
+            # we need to find out where it might have moved .
+            try:
+                path = find_run(ev["run"], include_archived=True)
+                target = path.parent
+            except ValueError:
+                target = working_dir / ev["source_folder"]
+                target.parent.mkdir(exist_ok=True, parents=True)
+            if (target / ev["run"] / "RTAComplete.txt").exists():
                 update_task(
                     task,
                     {
@@ -534,13 +693,35 @@ def delete_from_archive(task):
     update_task(task, {"status": "done"})
 
 
+def sort_by_date(task):
+    for fn in working_dir.glob("*"):
+        if fn.is_dir():
+            if len(fn.name) <= 4:
+                continue
+            year = fn.name[:2]
+            try:
+                year_int = int(year)
+            except:
+                continue
+            rta_existed = False
+            for rta_fn in fn.glob("RTAComplete.txt*"):
+                rta_existed = True
+                break
+            folder_name = "20" + year
+            folder = working_dir / folder_name
+            folder.mkdir(exist_ok=True)
+            shutil.move(fn, folder / fn.name)
+
+    update_task(task, {"status": "done"})
+
+
 for task in get_open_tasks():
     print("got task", task)
     if task["type"] == "provide_download_link":
         update_task(task, {"status": "processing"})
         provide_download_link(task)
     elif task["type"] == "delete_run":
-        if task["timestamp"] < time.time() - minutes_before_starting_deletion * 60:
+        if task["timestamp"] < (add_time_interval(datetime.datetime.now(), 'deletion_delay')).timestamp():
             update_task(task, {"status": "processing"})
             delete_run(task)
             update_task(
@@ -567,10 +748,52 @@ for task in get_open_tasks():
         update_task(task, {"status": "processing"})
         unarchive_run(task)
     elif task["type"] == "remove_from_archive":
-        if task["timestamp"] < time.time() - minutes_before_starting_deletion * 60:
+        if task["timestamp"] < (add_time_interval(datetime.datetime.now(), 'deletion_delay')).timestamp():
             update_task(task, {"status": "processing"})
             delete_from_archive(task)
+    elif task["type"] == "sort_by_date":
+        update_task(task, {"status": "processing"})
+        sort_by_date(task)
 
 
-cleanup_downloads()
-discover_runs()
+class TestTimeIntervals(unittest.TestCase):
+
+    def test_add_interval(self):
+        start = datetime.datetime(2021, 1, 1, 0, 0, 0)
+        times['test'] = {'value': 1, 'unit': 'seconds'}
+        end = add_time_interval(start, 'test')
+        assert end == datetime.datetime(2021, 1, 1, 0, 0, 1)
+        times['test'] = {'value': 1, 'unit': 'minutes'}
+        end = add_time_interval(start, 'test')
+        assert end == datetime.datetime(2021, 1, 1, 0, 1, 0)
+        times['test'] = {'value': 1, 'unit': 'hours'}
+        end = add_time_interval(start, 'test')
+        assert end == datetime.datetime(2021, 1, 1, 1, 0, 0)
+        times['test'] = {'value': 1, 'unit': 'days'}
+        end = add_time_interval(start, 'test')
+        assert end == datetime.datetime(2021, 1, 2, 0, 0, 0)
+        times['test'] = {'value': 1, 'unit': 'weeks'}
+        end = add_time_interval(start, 'test')
+        assert end == datetime.datetime(2021, 1, 8, 0, 0, 0)
+        times['test'] = {'value': 1, 'unit': 'months'}
+        end = add_time_interval(start, 'test')
+        assert end == datetime.datetime(2021, 2, 1, 0, 0, 0)
+        times['test'] = {'value': 1, 'unit': 'years'}
+        end = add_time_interval(start, 'test')
+        assert end == datetime.datetime(2022, 1, 1, 0, 0, 0)
+        times['test'] = {'value': 31, 'unit': 'days'}
+        end = add_time_interval(start, 'test')
+        assert end == datetime.datetime(2021, 2, 1, 0, 0, 0)
+        times['test'] = {'value': 15, 'unit': 'months'}
+        end = add_time_interval(start, 'test')
+        assert end == datetime.datetime(2022, 4, 1, 0, 0, 0)
+
+
+if __name__ == '__main__':
+    if '--test' in sys.argv:
+        sys.argv.remove('--test')
+        unittest.main()
+
+    else:
+        cleanup_downloads()
+        discover_runs()

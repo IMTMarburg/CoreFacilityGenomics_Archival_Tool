@@ -2,58 +2,15 @@ import { fail } from "@sveltejs/kit";
 
 import {
   add_task,
-  load_tasks,
-  load_workingdir_runs,
-  pending_archivals,
   update_task,
 } from "$lib/util";
 
-async function pending_deletions() {
-  let open_deletions = [];
-  let tasks = await load_tasks();
-  for (let task of tasks) {
-    if (
-      task["type"] == "delete_run" &&
-      (task["status"] == "open" || task["status"] == "processing")
-    ) {
-      open_deletions.push(task);
-    }
-  }
-  return open_deletions;
-}
+import { load_deletable_runs, pending_deletions } from "$lib/data";
 
 export async function load() {
   let open_deletions = await pending_deletions();
-  let named_open_deletions = {};
-  for (let deletion of open_deletions) {
-    named_open_deletions[deletion["run"]] = true;
-  }
-  let open_archivals = await pending_archivals();
-  let named_open_archivals = {};
-  for (let archival of open_archivals) {
-    named_open_archivals[archival["run"]] = true;
-  }
-
-  let runs = await load_workingdir_runs();
-  //filter runs to only those that are not in the process of being deleted
-  runs = runs.filter((run) => {
-    return named_open_deletions[run.name] == undefined &&
-      named_open_archivals[run.name] == undefined 
-      //run.earliest_deletion_timestamp < (new Date().getTime() / 1000);
-  });
-  runs.sort((a, b) => {
-    a["name"].localeCompare(b["name"]);
-  });
-  let non_deletable = runs.filter((run) => {
-      return run.earliest_deletion_timestamp >= ((new Date().getTime()) / 1000);
-  });
-  let deletable = runs.filter((run) => {
-	  return run.earliest_deletion_timestamp < ((new Date().getTime()) / 1000);
-  });
-
   return {
-    runs: deletable,
-	non_deletable_runs: non_deletable,
+    runs: await load_deletable_runs(),
     open_deletions: open_deletions,
   };
 }

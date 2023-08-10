@@ -352,7 +352,6 @@ figure figcaption {
 /* Forms */
 button:disabled,
 input:disabled {
-    background: var(--color-bg-secondary);
     border-color: var(--color-bg-secondary);
     color: var(--color-text-secondary);
     cursor: not-allowed;
@@ -490,6 +489,15 @@ table tr:nth-child(even) {
     background-color: var(--color-accent);
 }
 
+.evenodd:nth-child(even) {
+    background-color: var(--color-accent);
+}
+
+.evenodd:nth-child(odd) {
+}
+
+
+
 /* Quotes */
 blockquote {
     display: block;
@@ -529,4 +537,8 @@ input[type="submit"].small {
 	padding-top:0;
 	padding-bottom:0;
 	margin-top:0px;
+}
+
+p.error {
+	color:red;
 }

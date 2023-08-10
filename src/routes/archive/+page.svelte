@@ -36,6 +36,10 @@
               id="run_{escape_name(run.name)}"
               value={run.name}
               required
+			  on:change={() => {
+				  document.querySelector("input[name=what]").disabled=false;
+				  document.querySelector("input[name=what][value='Archive and Delete']").disabled= !run.deleteable
+			  }}
             />
             <label for="run_{escape_name(run.name)}">
               Run {run.name}
@@ -44,6 +48,7 @@
                 timestamp={run.run_finish_date}
                 newline={false}
               />
+              {run.deleteable ? "yes" : "no"}
             </label>
           </div>
           <div style="float:left">
@@ -53,12 +58,13 @@
       {/each}
     </ul>
     <br style="clear:both" />
-    <input type="submit" value="Archive" name="what" />
+    <input type="submit" value="Archive" name="what" disabled="true"/>
     <input
       type="submit"
       value="Archive and Delete"
       name="what"
       class="danger"
+	  disabled=true
     />
   {/if}
 </form>

@@ -1,31 +1,14 @@
 import { fail } from "@sveltejs/kit";
 
+import { add_task, update_task } from "$lib/util";
 import {
-  add_task,
-  load_archived_runs,
-  load_tasks,
-  load_workingdir_runs,
+  load_archive_deletable_runs,
   pending_archive_deletions,
-  update_task,
-} from "$lib/util";
+} from "$lib/data";
 
 export async function load() {
+  let runs = await load_archive_deletable_runs();
   let open_tasks = await pending_archive_deletions();
-  let named_open_tasks = {};
-  for (let deletion of open_tasks) {
-    named_open_tasks[deletion["run"]] = true;
-  }
-
-  let runs = await load_archived_runs();
-  //filter runs to only those that are not in the process of being deleted
-  runs = runs.filter((run) => {
-    return (
-      (run.archive_end_date != undefined &&
-        run.archive_end_date < (Date.now() / 1000)) &&
-      (named_open_tasks[run.name] == undefined)
-    );
-  });
-
   return {
     runs: runs,
     open_tasks: open_tasks,

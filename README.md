@@ -11,9 +11,12 @@ ORIGIN=http://localhost:3000 nix run github:knarkzel/sveltekit-nix
 ## Development
 
 ```
-git clone https://github.com/knarkzel/sveltekit-nix
-cd sveltekit-nix
+cd ./
 nix develop
-yarn
-yarn run dev
+# now something like this to run the webserver.
+./test_js.sh
+(port / url will be printed)
+
+# and something like this to run the background task
+./test_python.sh
 ```
