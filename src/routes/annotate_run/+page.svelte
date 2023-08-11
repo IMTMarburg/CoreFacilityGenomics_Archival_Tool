@@ -1,6 +1,7 @@
 <script lang="ts">
   import { event_details, hash_string } from "$lib/util";
   import RunDisplay from "$lib/components/RunDisplay.svelte";
+  import Toggler from "$lib/components/Toggler.svelte";
   import DatePeriod from "$lib/components/DatePeriod.svelte";
   import * as EmailValidator from "email-validator";
   export let data;
@@ -50,25 +51,16 @@
 <!-- lazy loading -->
 
 <ul>
-{#if show_all}
   {#if data.prev_annotated.length > 0}
-      {#each data.prev_annotated as run}
-        <li class="evenodd">
-          <a href="annotate_run/{run.name}">{run.name}</a>
-        </li>
-      {/each}
-  {:else}
-	  <li>No runs previously annotated.</li>
-  {/if}
+	  <Toggler text="click to show/hide list">
+		{#each data.prev_annotated as run}
+		  <li class="evenodd">
+			<a href="annotate_run/{run.name}">{run.name}</a>
+		  </li>
+		{/each}
+	</Toggler>
 {:else}
-	<li>
-  <a
-    href="#annotated"
-    on:click={() => {
-      show_all = true;
-    }}>(Click to load list)</a
-  >
-  </li>
+	  <li>No runs previously annotated.</li>
 {/if}
 </ul>
 
