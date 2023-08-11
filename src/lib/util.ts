@@ -216,7 +216,7 @@ export function add_time_interval(
   start_time: Date,
   interval_name: string,
   times,
-) {
+): Date {
   let unit = times[interval_name]["unit"];
   let value = times[interval_name]["value"];
   if (unit == "seconds") {

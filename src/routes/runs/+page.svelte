@@ -72,9 +72,15 @@
           />
         </td>
       </tr>
+	  {#if run.estimated_archive_size != null}
+		  <tr>
+			  <th>Future Size in archive (in GB)</th>
+			  <td>{Math.round(run.estimated_archive_size / 1024. / 1024. / 1024. * 100) / 100}</td>
+		  </tr>
+	  {/if}
 	  {#if run.archive_date != null && run.archive_deletion_date == null}
 		  <tr>
-			<th>Size in archive (in GB)</th>
+			<th>Current Size in archive (in GB)</th>
 			<td
 			  >{#if run.archive_size}
 				{Math.round(run.archive_size / 1024. / 1024. / 1024. * 100) / 100}
@@ -82,6 +88,12 @@
 			</td>
 		  </tr>
 	  {/if}
+	<tr>
+		<th>Archive removal warning mail sent</th>
+		<td>{#if run.archive_deletion_warning_sent}yes{:else}no{/if}</td>
+	</tr>
+
+
     {:else}
       <tr>
         <th>Archive</th>
@@ -100,12 +112,7 @@
 		<th>Deletion/Archive warning mail sent</th>
 		<td>{#if run.deletion_warning_sent}yes{:else}no{/if}</td>
 	</tr>
-<tr>
-		<th>Archive removal warning mail sent</th>
-		<td>{#if run.archive_deletion_warning_sent}yes{:else}no{/if}</td>
-	</tr>
-
-  </table>
+	  </table>
   <br />
   <br />
 {/each}

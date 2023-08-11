@@ -32,7 +32,7 @@ when it is ready.
 {{/if}}
 {{#if DO_ARCHIVE}}
 After the deletion date, it will be further archived until {{ARCHIVE_UNTIL}}.
-
+The achive will consume {{ARCHIVE_SIZE}} of storage.
 {{/if}}
 {{#if COMMENTS}}
 Further comments: {{COMMENTS}}
@@ -44,6 +44,7 @@ Further comments: {{COMMENTS}}
       "DELETION_DATE"= "2023-06-27"
       "DAYS"= 10
       "DO_ARCHIVE"= true
+	  "ARCHIVE_SIZE" = "0.45 GB"
       "ARCHIVE_UNTIL"= "2033-07-07"
       "COMMENTS"= "This is an example comment."
 	  DOWNLOAD_BEING_PREPARED = false

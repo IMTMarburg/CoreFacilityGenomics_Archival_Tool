@@ -14,7 +14,7 @@ export const actions = {
 	if (form_data.get("submit") == "Set") {
 		cookies.set("fake_date", form_data.get("fake_date"));
 	} else {
-		cookies.set("fake_date", null);
+		cookies.delete("fake_date");
 	}
     try {
 	  } catch (error) {

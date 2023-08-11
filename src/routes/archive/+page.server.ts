@@ -2,10 +2,10 @@ import { fail } from "@sveltejs/kit";
 
 import {
   add_task,
-  runs_can_be_archived,
   load_runs,
   load_tasks,
   pending_archivals,
+  runs_can_be_archived,
 } from "$lib/data";
 
 export async function load({ cookies }) {
@@ -23,26 +23,21 @@ export const actions = {
     const form_data = await request.formData();
     try {
       let data = await load({ cookies });
-      let found = false;
-      let found_run = null;
-      let found_deleteable = false;
-      for (let run of data.runs) {
-        if (run.name == form_data.get("run")) {
-          found = true;
-          found_run = run;
-          found_deleteable = found_run.earliest_deletion_timestamp <
-            ((new Date().getTime()) / 1000);
-          break;
-        }
-      }
-      if (!found) {
-        throw new Error("Run not found (or not eligible for archiving )");
-      }
-      let do_archive_and_delete = form_data.get("what") == "Archive and Delete";
-      if (do_archive_and_delete && !found_deleteable) {
+      let tasks = await load_tasks();
+      var run_list = await load_runs();
+      var run = form_data.get("run");
+      var found_runs = runs_can_be_archived(cookies, run_list, tasks)
+        .filter((check_run) => {
+          return (check_run.name == run);
+        });
+      var found_deleteable = found_runs.length > 0;
+
+      if (!found_deleteable) {
         throw new Error("Run not eligible for deletion yet");
         //check whether the run is elibible for deletion
       }
+	  var found_run = found_runs[0];
+      let do_archive_and_delete = form_data.get("what") == "Archive and Delete";
       add_task("archive_run", {
         run: form_data.get("run"),
         run_finish_date: found_run["run_finish_date"],

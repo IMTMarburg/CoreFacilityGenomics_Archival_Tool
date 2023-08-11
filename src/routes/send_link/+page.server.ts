@@ -29,7 +29,6 @@ export async function load() {
   let events = await load_events();
   for (let ii = events.length - 1; ii >= 0; ii--) {
     if (events[ii].type == "run_download_removed") {
-      console.log("bingo");
       for (let jj = last_requests.length - 1; jj >= 0; jj--) {
         if (last_requests[jj].filename == events[ii].filename) {
           last_requests[jj].filename = "(expired)";
@@ -40,7 +39,6 @@ export async function load() {
   var run_list = await load_runs();
 
   var runs = await runs_in_working_set(run_list);
-  console.log(runs);
   runs.sort((a, b) => {
     a["name"].localeCompare(b["name"]);
   });

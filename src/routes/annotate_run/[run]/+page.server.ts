@@ -73,6 +73,7 @@ export const actions = {
         }, locals.user);
       }
 
+
       return { success: true };
     } catch (error) {
       return fail(422, {

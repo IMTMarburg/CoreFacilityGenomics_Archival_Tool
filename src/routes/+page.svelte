@@ -28,7 +28,7 @@
   </b>
 </p>
 
-<Toggler text="Click here for system description" expanded="true">
+<Toggler text="Click here for system description" expanded="false">
 <h2>Data storage</h2>
 <p>The system has three data storages:</p>
 <ul>
@@ -62,7 +62,8 @@
 	<li>Sequencer uploads data to working directory and marks the run finished.</li>
 	<li>This system detects the run (and all alignments)</li>
 	<li>You annotated the run with the receiver, mark it as finished, decide on archival (or not) and deletion dates.</li> 
-	<li>The system mails the receivers that their run is finished</li>
+	<li>The system mails the receivers that their run is finished, and the details you set on the annotation. <br />
+	(If 'archive' was set, this includes the archive size)</li>
 	<li>If requested, the system also generates & mails a download link</li>
 	<li>If set to archive, the system also calculates the size the run will have once archived</li>
 	<li>(You can push deletion/achive dates (and change 'archive-or-not' status into the future (before it actually happend).
@@ -92,7 +93,7 @@
       <li>
         <a href="{base}/annotate_run"
           >Add annotation (missing: {todo_counts["no annotation"]}, unfinished: {todo_counts[
-            "unfinished annotion"
+            "unfinished annotation"
           ]})</a
         >
       </li>

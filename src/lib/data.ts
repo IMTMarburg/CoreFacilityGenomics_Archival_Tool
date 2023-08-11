@@ -14,11 +14,12 @@ async function load_json_log(key: string) {
     event_cache[key] = { last: "", events: [] };
   }
 
-  let events = event_cache[key].events;
-  console.log("readdir", key, event_cache[key].last);
+  let events = [];
+  //let events = event_cache[key].events;
+  //console.log("readdir", key, event_cache[key].last);
   var files = await fs.promises.readdir(target_dir);
-  files = files.filter((file) => event_cache[key].last < file);
-  console.log("Stop read dir", files.length);
+  //files = files.filter((file) => event_cache[key].last < file);
+  //console.log("Stop read dir", files.length);
   for (const file of files) {
     //console.log(file);
     let re = /(\d+)_(\d+)_?j?(\d+)?\.json/;
@@ -118,13 +119,14 @@ export async function load_runs() {
         runs[ev.run]["alignments"].splice(index, 1);
       }
     } else if (ev.type == "run_annotated") {
-		console.log(ev);
       runs[ev.run]["annotations"].push(ev);
     } else if (ev.type == "deletion_warning_sent") {
       runs[ev.info.RUN_NAME ?? ev.info.RUN]["deletion_warning_sent"] = true;
     } else if (ev.type == "archive_deletion_warning_sent") {
       runs[ev.info.RUN_NAME ?? ev.info.RUN]["archive_deletion_warning_sent"] =
         true;
+    } else if (ev.type == "archive_size_estimated") {
+      runs[ev.run]["estimated_archive_size"] = ev.archive_size;
     }
   }
   //runs is an object, not an array
@@ -202,7 +204,7 @@ export function runs_can_be_archived(cookies, run_list, tasks) {
   let named_open_tasks = runs_to_names(pending_archivals(tasks));
   let named_archived = runs_to_names(runs_in_archive(run_list));
   let named_deletion_warnings_sent =
-    runs_where_deletion_warnings_have_been_sent(run_list);
+    runs_to_names(runs_where_deletion_warnings_have_been_sent(run_list));
 
   let runs = runs_in_working_set(run_list);
   //filter runs to only those that are not in the process of being archived
@@ -237,7 +239,7 @@ export function runs_can_be_deleted(cookies, run_list, tasks) {
   let named_open_archivals = runs_to_names(pending_archivals(tasks));
   let named_archived = runs_to_names(runs_in_archive(run_list));
   let named_deletion_warnings_sent =
-    runs_where_deletion_warnings_have_been_sent(run_list);
+    runs_to_names(runs_where_deletion_warnings_have_been_sent(run_list));
 
   let runs = runs_in_working_set(run_list);
   // filter runs to only those that are not in the process of being deleted
@@ -344,7 +346,7 @@ export async function load_todos(cookies) {
 
   let res = {
     "no annotation": runs_unannotated(run_list),
-    "unfinished annotion": runs_annotation_unfinished(run_list),
+    "unfinished annotation": runs_annotation_unfinished(run_list),
     "archive": runs_can_be_archived(cookies, run_list, tasks),
     "delete": runs_can_be_deleted(cookies, run_list, tasks),
     "delete_from_archive": runs_can_be_deleted_from_archive(
@@ -433,4 +435,21 @@ export async function add_event(type: string, data: object, user: string) {
   data["type"] = type;
   data["source"] = user;
   add_json_log("events", data);
+}
+
+export async function run_is_still_annotatable(run) {
+  if (!run["run_deleted_from_working_set"]) {
+    return false;
+  }
+  if (run["in_archive"]) {
+    return false;
+  }
+  if (
+    (run["annotations"].length > 0) &&
+    (last_annotation(run, "run_finished") == true)
+  ) {
+    return false;
+  }
+
+  return true;
 }

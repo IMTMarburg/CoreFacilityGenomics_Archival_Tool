@@ -522,6 +522,7 @@ def discover_runs():
         elif t == "alignment_removed":
             current_alignments.remove((event["run"], event["alignment"]))
 
+
     # make sure we get the runs before the alignments
     q = sorted(
         working_dir.glob("**/RTAComplete.txt"), key=lambda x: (str(x).count("/"), x)
@@ -641,7 +642,7 @@ def parse_iso_date(s):
 
 
 def format_number(number):
-    return "{:,}".format(number)
+    return f"{number:,.2f}"
 
 
 def format_date(dt):
@@ -690,6 +691,15 @@ def archive_run(task):
             "archive_end_date": end_timestamp,
         }
     )
+
+
+def calculate_archive_size(run_name):
+    logger.debug(f"Calculating archive size {run_name}")
+    source = find_run(run_name)
+    tf = tempfile.NamedTemporaryFile()
+    key, size = tar_and_encrypt(source, Path(tf.name))
+    tf.close()
+    return size
 
 
 def unarchive_run(task):
@@ -771,6 +781,12 @@ def send_annotation_email(task):
     logger.debug("Sending annotation email")
     info = task
     run = task["run"]
+    if task["do_archive"]:
+        archive_size_bytes = calculate_archive_size(task["run"])
+        archive_size = format_number(archive_size_bytes / 1024**3) + " GB"
+    else:
+        archive_size_bytes = None
+        archive_size = "n/a"
 
     msg = send_email(
         info["receivers"],
@@ -783,11 +799,20 @@ def send_annotation_email(task):
             "DAYS": days_until(datetime.datetime.fromtimestamp(info["deletion_date"])),
             "DO_ARCHIVE": bool(info["do_archive"]),
             "ARCHIVE_UNTIL": info.get("archive_deletion_date", None),
+            "ARCHIVE_SIZE": archive_size,
             "COMMENT": info["comment"],
             "DOWNLOAD_BEING_PREPARED": info["send_download_link"],
             "UPDATE": info["is_update"],
         },
     )
+    if archive_size_bytes is not None:
+        add_event(
+            {
+                'type': "archive_size_estimated",
+                "run": run,
+                "archive_size": archive_size_bytes,
+            },
+        )
     update_task(task, {"status": "done", "email": msg})
 
 
@@ -854,10 +879,16 @@ def send_archive_deletion_warnings():
     warn_if_deleted_before_this_date = add_time_interval(
         NOW, "archive_deletion_warning"
     )
+    archived = {
+        x['run']
+        for x in events
+        if x["type"] == "run_archived"
+    }
+
     to_warn = []
     for event in events:
         if event["type"] == "run_annotated":
-            if event["run_finished"] and event["do_archive"]:
+            if event["run_finished"] and event["do_archive"] and event["run"] in archived:
                 deletion_date_time = datetime.datetime.fromtimestamp(
                     event["archive_deletion_date"]
                 )
@@ -877,7 +908,7 @@ def send_archive_deletion_warnings():
             "ARCHIVE_UNTIL": format_date(target["archive_deletion_date"]),
             "RECEIVERS": target["receivers"],
         }
-        send_email(target["receivers"], "run_about_to_be_deleted", info)
+        send_email(target["receivers"], "run_about_to_be_removed_from_archive", info)
         add_event(
             {
                 "type": "archive_deletion_warning_sent",
