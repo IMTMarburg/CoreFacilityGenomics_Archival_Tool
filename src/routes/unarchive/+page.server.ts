@@ -1,35 +1,31 @@
 import { fail } from "@sveltejs/kit";
 
+import { runs_to_names } from "$lib/util";
 import {
   add_task,
-  load_archived_runs,
+  load_runs,
   load_tasks,
-  load_workingdir_runs,
-  update_task,
-} from "$lib/util";
-import { pending_archive_deletions, pending_restores } from "$lib/data";
+  pending_archive_deletions,
+  pending_restores,
+  runs_in_archive,
+  runs_in_working_set,
+} from "$lib/data";
 
 export async function load() {
-  let open_tasks = await pending_restores();
-  let named_open_tasks = {};
-  for (let deletion of open_tasks) {
-    named_open_tasks[deletion["run"]] = true;
-  }
+  let run_list = await load_runs();
+  let tasks = await load_tasks();
 
-  let working_dir_runs = await load_workingdir_runs();
-  let named_working_dir_runs = {};
-  for (let run of working_dir_runs) {
-    named_working_dir_runs[run["name"]] = true;
-  }
+  let open_tasks = pending_restores(tasks);
+  let named_open_tasks = runs_to_names(open_tasks);
 
-  let pending = await pending_archive_deletions();
-  let named_pending_deletions = {};
-  for (let deletion of pending) {
-    named_pending_deletions[deletion["run"]] = true;
-  }
+  let named_working_dir_runs = runs_to_names(
+    runs_in_working_set(run_list),
+  );
+  let named_pending_deletions = runs_to_names(
+    pending_archive_deletions(tasks),
+  );
 
-  let runs = await load_archived_runs();
-  console.log(named_working_dir_runs);
+  let runs = runs_in_archive(run_list);
   //filter runs to only those that are not in the process of being deleted
   runs = runs.filter((run) => {
     return named_open_tasks[run.name] == undefined &&
@@ -44,7 +40,7 @@ export async function load() {
 }
 
 export const actions = {
-  archive: async ({ cookies, request, locals }) => {
+  archive: async ({ request, locals }) => {
     const form_data = await request.formData();
     try {
       let data = await load();

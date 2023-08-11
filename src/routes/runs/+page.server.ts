@@ -1,4 +1,4 @@
-import { load_runs } from "$lib/util";
+import { load_runs } from "$lib/data";
 
 interface Run {
   download_available?: boolean;

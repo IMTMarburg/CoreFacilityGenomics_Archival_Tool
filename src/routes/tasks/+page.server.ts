@@ -1,6 +1,6 @@
 
 
-import {load_tasks} from '$lib/util';
+import {load_tasks} from '$lib/data';
 
 export async function load() {
   return {

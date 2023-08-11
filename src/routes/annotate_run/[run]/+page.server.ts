@@ -1,6 +1,12 @@
 import { fail } from "@sveltejs/kit";
 
-import { add_event, check_emails, load_runs, load_times } from "$lib/util";
+import {
+  add_time_interval,
+  check_emails,
+  isodate_to_timestamp,
+  load_times,
+} from "$lib/util";
+import { add_event, add_task, load_runs } from "$lib/data";
 
 export async function load({ params }) {
   let runs = await load_runs();
@@ -23,30 +29,47 @@ export async function load({ params }) {
 export const actions = {
   annotate: async ({ cookies, request, locals, params }) => {
     let data = await load({ params });
-    console.log(data);
     const form_data = await request.formData();
     try {
       let receivers = check_emails(form_data.get("receivers"));
-      let run_finished = (data.run["annotations"].length > 0 &&
+      let is_updated = data.run["annotations"].length > 0 &&
         (data
           .run["annotations"][data.run["annotations"].length - 1][
             "run_finished"
-          ] === true)) ||
+          ] === true);
+      let run_finished = is_updated ||
         (form_data.get("run_finished") == "true");
+      let send_download_link = form_data.get("send_download_link", false);
       let out = {
+        "run": data["run"]["name"],
         "receivers": receivers,
         "run_finished": run_finished,
-        "deletion_date": form_data.get("deletion_date"),
-        "do_archive": form_data.get("archive", false),
+        "is_update": is_updated,
+        "deletion_date": isodate_to_timestamp(form_data.get("deletion_date")),
+        "do_archive": form_data.get("archive", false) == "true",
+        "archive_deletion_date": isodate_to_timestamp(
+          form_data.get("archive_date", false),
+        ),
         "comment": form_data.get("comment"),
         "private_comment": form_data.get("private_comment"),
-        "send_download_link": form_data.get("send_download_link", false),
+        "send_download_link": send_download_link,
       };
 
-      await add_event("run_annotated", {
-        "run": data["run"]["name"],
-        "annotation": out,
-      }, locals.user);
+      await add_event("run_annotated", out, locals.user);
+      await add_task("send_annotation_email", out, locals.user);
+      if (send_download_link) {
+        let invalidation_date = add_time_interval(
+          new Date(),
+          "download_retention",
+          load_times(),
+        );
+        await add_task("provide_download_link", {
+          "to_send": [data["run"]["name"] + "___complete"],
+          "receivers": receivers,
+          "invalid_after": invalidation_date / 1000,
+          "comment": "",
+        }, locals.user);
+      }
 
       return { success: true };
     } catch (error) {

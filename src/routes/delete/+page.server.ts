@@ -2,24 +2,28 @@ import { fail } from "@sveltejs/kit";
 
 import {
   add_task,
+  load_runs,
+  load_tasks,
+  pending_deletions,
+  runs_can_be_deleted,
   update_task,
-} from "$lib/util";
+} from "$lib/data";
 
-import { load_deletable_runs, pending_deletions } from "$lib/data";
-
-export async function load() {
-  let open_deletions = await pending_deletions();
+export async function load({ cookies }) {
+  let tasks = await load_tasks();
+  let open_deletions = pending_deletions(tasks);
+  let run_list = await load_runs();
   return {
-    runs: await load_deletable_runs(),
+    runs: runs_can_be_deleted(cookies, run_list, tasks),
     open_deletions: open_deletions,
   };
 }
 
 export const actions = {
-  abort: async ({ cookies, request }) => {
+  abort: async ({ request, cookies }) => {
     const form_data = await request.formData();
     try {
-      let data = await load();
+      let data = await load({ cookies: cookies });
       for (let open_deletion of data.open_deletions) {
         let unix_timestamp = new Date().getTime() / 1000;
         if (
@@ -45,7 +49,7 @@ export const actions = {
   delete: async ({ cookies, request, locals }) => {
     const form_data = await request.formData();
     try {
-      let data = await load();
+      let data = await load({ cookies: cookies });
       let found = false;
       let found_run = null;
       for (let run of data.runs) {
@@ -64,6 +68,7 @@ export const actions = {
         archive_date: found_run["archive_date"],
       }, locals.user);
     } catch (error) {
+      throw error;
       return fail(422, {
         run: form_data.get("run"),
         error: error.message,

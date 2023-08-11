@@ -35,6 +35,35 @@
       name.replace(/[^a-zA-Z0-9]/g, "_") + hash_string(name).then().catch()
     );
   }
+
+  var formated_receivers = "";
+  if (form?.receivers) {
+    formated_receivers = form.receivers;
+  } else if (
+    data.run.annotations.length > 0 &&
+    data.run.annotations[data.run.annotations.length - 1]["receivers"]
+  ) {
+    formated_receivers =
+      data.run.annotations[data.run.annotations.length - 1]["receivers"].join(
+        "\n"
+      );
+  }
+  formated_receivers = formated_receivers.replace(",", "\n");
+
+  function get_deletion_date() {
+    if (data.run["annotations"].length > 0) {
+      let dt =
+        data.run["annotations"][data.run["annotations"].length - 1][
+          "deletion_date"
+        ];
+      if (dt != null) {
+        return iso_date(new Date(dt * 1000));
+      }
+    }
+    return iso_date(
+      add_time_interval(new Date(), "earliest_deletion", data.times)
+    );
+  }
 </script>
 
 <h1>Annotate run - {data.run.name}</h1>
@@ -61,10 +90,7 @@
     <textarea
       name="receivers"
       id="receivers"
-      value={form?.receivers ??
-        (data.run.annotations.length > 0
-          ? data.run.annotations[data.run.annotations.length - 1]["receivers"]
-          : "")}
+      bind:value={formated_receivers}
       rows="3"
       required
     />
@@ -131,19 +157,10 @@
           type="date"
           name="deletion_date"
           id="date"
-          value={form?.date ?? data.run["annotations"].length > 0
-            ? data.run["annotations"][data.run["annotations"].length - 1][
-                "deletion_date"
-              ]
-            : iso_date(
-                add_time_interval(new Date(), "earliest_deletion", data.times)
-              )}
+          value={form?.date ??  get_deletion_date()}
           min={date_min(
-            data.run["annotations"].length > 0
-              ? data.run["annotations"][data.run["annotations"].length - 1][
-                  "deletion_date"
-                ]
-              : iso_date(
+			  get_deletion_date(),
+               iso_date(
                   add_time_interval(new Date(), "earliest_deletion", data.times)
                 )
           )}
@@ -162,11 +179,10 @@
               : null) ??
             iso_date(add_time_interval(new Date(), "archive", data.times))}
           min={date_min(
-            data.run["annotations"].length > 0
-              ? data.run["annotations"][data.run["annotations"].length - 1][
-                  "archive_date"
-                ]
-              : iso_date(add_time_interval(new Date(), "archive", data.times))
+				iso_date(add_time_interval(new Date(), "archive", data.times)),
+				data.run["annotations"].length > 0 ?
+				data.run["annotations"][data.run["annotations"].length - 1][ "archive_date"]
+				: null
           )}
           required
         />
@@ -176,21 +192,12 @@
           type="date"
           name="deletion_date"
           id="date"
-          value={form?.date ?? data.run["annotations"].length > 0
-            ? data.run["annotations"][data.run["annotations"].length - 1][
-                "deletion_date"
-              ]
-            : iso_date(
-                add_time_interval(new Date(), "earliest_deletion", data.times)
-              )}
+          value={form?.date ?? get_deletion_date()}
           min={date_min(
-            data.run["annotations"].length > 0
-              ? data.run["annotations"][data.run["annotations"].length - 1][
-                  "deletion_date"
-                ]
-              : iso_date(
-                  add_time_interval(new Date(), "earliest_deletion", data.times)
-                )
+            get_deletion_date(),
+            iso_date(
+              add_time_interval(new Date(), "earliest_deletion", data.times)
+            )
           )}
           required
         />

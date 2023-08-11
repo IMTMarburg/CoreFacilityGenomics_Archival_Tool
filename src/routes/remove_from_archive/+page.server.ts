@@ -1,14 +1,21 @@
 import { fail } from "@sveltejs/kit";
 
-import { add_task, update_task } from "$lib/util";
+import { get_now, last_annotation } from "$lib/util";
 import {
-  load_archive_deletable_runs,
+  add_task,
+  load_tasks,
+  runs_can_be_deleted_from_archive,
+  load_runs,
   pending_archive_deletions,
+  update_task,
 } from "$lib/data";
 
-export async function load() {
-  let runs = await load_archive_deletable_runs();
-  let open_tasks = await pending_archive_deletions();
+export async function load({ cookies }) {
+  var run_list = await load_runs();
+  let tasks = await load_tasks();
+  var runs = runs_can_be_deleted_from_archive(cookies, run_list, tasks);
+
+  let open_tasks = pending_archive_deletions(tasks);
   return {
     runs: runs,
     open_tasks: open_tasks,
@@ -19,7 +26,7 @@ export const actions = {
   abort: async ({ cookies, request }) => {
     const form_data = await request.formData();
     try {
-      let data = await load();
+      let data = await load({ cookies: cookies });
       for (let open_deletion of data.open_tasks) {
         let unix_timestamp = new Date().getTime() / 1000;
         if (
@@ -45,7 +52,7 @@ export const actions = {
   archive: async ({ cookies, request, locals }) => {
     const form_data = await request.formData();
     try {
-      let data = await load();
+      let data = await load({ cookies: cookies });
       let found = false;
       let found_run = null;
       for (let run of data.runs) {
@@ -58,14 +65,17 @@ export const actions = {
       if (!found) {
         throw new Error("Run not found");
       }
-      console.log(JSON.stringify(found_run));
+      found_run["archive_deletion_date"] = last_annotation(
+        found_run,
+        "archive_deletion_date",
+      );
       if (
-        !(found_run["archive_end_date"] &&
-          found_run["archive_end_date"] < Date.now())
+        !(found_run["archive_deletion_date"] &&
+          found_run["archive_deletion_date"] < get_now(cookies))
       ) {
         throw new Error(
-          "Run archive_end_date not in future" +
-            JSON.stringify(found_run["archive_end_date"]),
+          "Run archive_deletion_date not in future" +
+            JSON.stringify(found_run["archive_deletion_date"]),
         );
       }
 
@@ -73,7 +83,7 @@ export const actions = {
         run: form_data.get("run"),
         run_finish_date: found_run["run_finish_date"],
         archive_date: found_run["archive_date"],
-        archive_end_date: found_run["archive_date"],
+        archive_deletion_date: found_run["archive_deletion_date"],
       }, locals.user);
     } catch (error) {
       return fail(422, {

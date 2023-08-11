@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { event_details, hash_string } from "$lib/util";
+  import { event_details, hash_string, last_annotation } from "$lib/util";
   import RunDisplay from "$lib/components/RunDisplay.svelte";
   import DatePeriod from "$lib/components/DatePeriod.svelte";
   import * as EmailValidator from "email-validator";
@@ -40,6 +40,11 @@
 				  document.querySelector("input[name=what]").disabled=false;
 				  document.querySelector("input[name=what][value='Archive and Delete']").disabled= !run.deleteable
 			  }}
+
+			  on:click={() => {
+				  document.querySelector("input[name=what]").disabled=false;
+				  document.querySelector("input[name=what][value='Archive and Delete']").disabled= !run.deleteable
+			  }}
             />
             <label for="run_{escape_name(run.name)}">
               Run {run.name}
@@ -48,7 +53,12 @@
                 timestamp={run.run_finish_date}
                 newline={false}
               />
-              {run.deleteable ? "yes" : "no"}
+			  <br />
+			  Planned archival date: <DatePeriod
+				timestamp={last_annotation(run, 'deletion_date')}
+				newline={false}
+				/>
+			  <br />
             </label>
           </div>
           <div style="float:left">

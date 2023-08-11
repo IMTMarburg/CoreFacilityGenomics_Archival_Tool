@@ -1,5 +1,6 @@
 [download_ready]
-    "default"= """Your download for sequencing runs is available at {{URL}}.
+    subject = "Sequencing run download ready"
+    default= """Your download for sequencing runs is available at {{URL}}.
 
 The download file is supposed to be {{SIZE}} bytes in size.
 Please check the included sha256 files with sha256sum to verify integrity.
@@ -20,6 +21,7 @@ Further comments: %COMMENT%"
       "COMMENT"= "This is an example comment"
 
 [run_completed]
+	subject = "Sequencing run completed"
     default = """Your sequencing run {{RUN_NAME}} has been {{#if UPDATE}}updated{{else}}completed{{/if}}.
 
 It will be stored at least until {{DELETION_DATE}} which is {{DAYS}} days from now.
@@ -29,7 +31,7 @@ A download link is currently being prepared and will be sent by seperate email
 when it is ready.
 {{/if}}
 {{#if DO_ARCHIVE}}
-It will be archived until {{ARCHIVE_UNTIL}}.
+After the deletion date, it will be further archived until {{ARCHIVE_UNTIL}}.
 
 {{/if}}
 {{#if COMMENTS}}
@@ -48,9 +50,10 @@ Further comments: {{COMMENTS}}
 	  UPDATE= false
 
 [run_about_to_be_deleted]
-default = """Your sequencing run {RUN_NAME} is about to be deleted from the server.
+subject = "Sequencing run about to be deleted"
+default = """Your sequencing run {{RUN_NAME}} is about to be deleted from the server.
 
-Deletion date= {{DELITION_DATE}} ({{DAYS}} days from now).
+Deletion date: {{DELETION_DATE}} ({{DAYS}} days from now).
 
 {{#if DO_ARCHIVE }}
 It will then be archived until {{ARCHIVE_UNTIL}}.
@@ -68,10 +71,11 @@ Contact us immediatly if you an extension!
   ARCHIVE_UNTIL= "2033-07-07"
 
 [run_about_to_be_removed_from_archive]
+	subject = "Sequencing run about to be removed from archive"
     default = """
 Your sequencing run {RUN_NAME} is about to be deleted from archive.
 It will be kept until {{ARCHIVE_UNTIL}}, which is {{DAYS}} days from now.
-Please contact the core facilty if you need to download the data.
+Please contact the core facilty if you need to download the data (before that date!).
  """
 [run_about_to_be_removed_from_archive.example_data]
       "RUN_NAME"= "230623_NB552003_0218_AHJ3F3BGXT"

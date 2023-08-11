@@ -1,15 +1,19 @@
 import { fail } from "@sveltejs/kit";
 
 import {
-  add_task,
   isodate_to_timestamp,
-  load_events,
-  load_tasks,
-  load_workingdir_runs,
   check_emails,
   load_times,
   add_time_interval
 } from "$lib/util";
+
+import {
+  add_task,
+  load_tasks,
+  load_events,
+  load_runs,
+  runs_in_working_set,
+} from "$lib/data";
 
 export async function load() {
   let last_requests = [];
@@ -33,7 +37,10 @@ export async function load() {
       }
     }
   }
-  let runs = await load_workingdir_runs();
+  var run_list = await load_runs();
+
+  var runs = await runs_in_working_set(run_list);
+  console.log(runs);
   runs.sort((a, b) => {
     a["name"].localeCompare(b["name"]);
   });
@@ -53,7 +60,8 @@ export const actions = {
   default: async ({ cookies, request, locals }) => {
     const data = await request.formData();
     try {
-      let runs = await load_workingdir_runs();
+   	  var run_list = await load_runs();
+      var runs = await runs_in_working_set(run_list);
       if (data.get("to_send") == null) {
         throw new Error("No run selected");
       }
@@ -78,7 +86,13 @@ export const actions = {
           throw new Error("Run not found: " + run + " - " + alignment);
         }
       }
-      let receivers = check_emails(data.get("receivers"));
+      var receivers; 
+	  if (data.get('receivers') === '') {
+		  receivers = [];
+	  }
+	  else {
+		  receivers = check_emails(data.get("receivers"));
+	  }
 
       let invalidation_date = isodate_to_timestamp(data.get("date"));
       let comment = data.get("comment") ?? "";

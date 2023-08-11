@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { event_details } from "$lib/util";
+  import { event_details, contains_all_words } from "$lib/util";
   export let data;
   import { paginate, LightPaginationNav } from "svelte-paginate";
   import DatePeriod from "$lib/components/DatePeriod.svelte";
@@ -13,7 +13,7 @@
   $: filtered = data.events.filter(
     (event) =>
       (filter_event_type == "" ||
-        (event["type"] ?? "undefined").indexOf(filter_event_type) != -1) &&
+        (event["type"] ?? "undefined") ==filter_event_type) &&
       (filter_source == "" ||
         (event["source"] ?? "undefined").indexOf(filter_source) != -1) &&
       (text_filter == "" ||
@@ -21,29 +21,8 @@
   );
   $: paginatedItems = paginate({ items: filtered, pageSize, currentPage });
 
-  function contains_all_words(haystack: string, needle: string) {
-    let haystack2 = haystack.toLowerCase();
-    let needle2 = needle.toLowerCase();
-    let words = needle2.split(" ");
-    for (let word of words) {
-      if (haystack2.indexOf(word) == -1) {
-        return false;
-      }
-    }
-    return true;
-  }
 
-  function page_forward() {
-    currentPage = Math.min(currentPage + 1, totalPages);
-    load_data();
-  }
-  function page_back() {
-    currentPage = Math.max(currentPage - 1, 1);
-    load_data();
-  }
-
-  async function loadData() {}
-</script>
+  </script>
 
 <h1>Events</h1>
 

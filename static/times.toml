@@ -14,3 +14,11 @@ unit = 'days'
 value = 90
 unit = 'days'
 
+
+[deletion_warning]
+value = 30
+unit = 'days'
+
+[archive_deletion_warning]
+value = 30
+unit = 'days'

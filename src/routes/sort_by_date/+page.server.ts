@@ -1,23 +1,17 @@
 import { fail } from "@sveltejs/kit";
 
-import {
-  add_task,
-  load_archived_runs,
-  load_tasks,
-  load_workingdir_runs,
-  pending_sorts,
-  update_task,
-} from "$lib/util";
+import { add_task, load_tasks, pending_sorts } from "$lib/data";
 
 export async function load() {
-  let open_tasks = await pending_sorts();
+  let tasks = await load_tasks();
+  let open_tasks = pending_sorts(tasks);
   return {
     open_tasks: open_tasks,
   };
 }
 
 export const actions = {
-  archive: async ({ cookies, request, locals }) => {
+  do_sort: async ({ cookies, request, locals }) => {
     const form_data = await request.formData();
     try {
       let data = await load();

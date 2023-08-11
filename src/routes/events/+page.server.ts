@@ -1,6 +1,6 @@
 
 
-import {load_events} from '$lib/util';
+import {load_events} from '$lib/data';
 
 export async function load() {
 	let events = await load_events();

@@ -1,6 +1,6 @@
 import fs from "fs";
 import process from "process";
-import { add_event, load_events } from "$lib/util";
+import { add_event, load_events } from "$lib/data";
 
 // ----- GET -----
 /** @type {import('./$types').RequestHandler} */

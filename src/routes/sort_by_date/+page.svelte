@@ -13,7 +13,7 @@
 This job goes through all runs in the main folder,
 and sorts them into YYYY subfolders.
 
-<form method="POST" action="?/archive">
+<form method="POST" action="?/do_sort">
   {#if form?.error}
     <p class="error">{form.error}</p>
   {/if}

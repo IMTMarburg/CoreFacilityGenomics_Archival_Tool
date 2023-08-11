@@ -10,12 +10,14 @@ import smtplib
 import datetime
 import random
 import string
+import pybars
 import time
 import re
 import subprocess
 import json
 from pathlib import Path
 import os
+from loguru import logger
 
 download_dir = Path(os.environ["DOWNLOAD_DIR"])
 working_dir = Path(os.environ["WORKING_DIR"])
@@ -25,35 +27,37 @@ data_dir = Path(os.environ["DATA_DIR"])
 event_dir = data_dir / "events"
 task_dir = data_dir / "tasks"
 secret_file = Path(os.environ["SECRETS_FILE"])
+do_send_emails = os.environ.get("DO_SEND_EMAILS", "") == "true"
 
-
-templates = toml.load(open(Path(os.environ["TEMPLATES_PATH"])))
+default_templates = toml.load(open(Path(os.environ["TEMPLATES_PATH"])))
 
 times = toml.load(open(Path(os.environ["TIMES_PATH"])))
+with open(secret_file) as f:
+    secrets = json.load(f)
 
-default_template = """
-Your download is available at %URL%.
-
-It will be available until %DELETION_DATE% which is %DAYS% days from now.
-
-Further comments: %COMMENT%
-"""
-
+task_dir.mkdir(parents=True, exist_ok=True)
+event_dir.mkdir(parents=True, exist_ok=True)
 
 _events = None
 
+if "FAKE_TIME" in os.environ:
+    NOW = datetime.datetime.fromisoformat(os.environ["FAKE_TIME"])
+else:
+    NOW = datetime.datetime.today()
+
 
 def load_events():
+    """Load events from disk, sorted by timestamp, ascending"""
     global _events
     if _events is None:
         events = []
         for filename in event_dir.glob("*.json"):
             try:
                 timestamp, pid = re.match(
-                    r"(\d+)_(\d+).*\.json", filename.name
+                    r"^(\d+)_(\d+).*\.json$", filename.name
                 ).groups()
             except:
-                print("invalid filename", filename.name)
+                logger.error("invalid filename", filename.name)
                 continue
             with open(filename) as f:
                 event = json.load(f)
@@ -69,14 +73,15 @@ def get_open_tasks():
     tasks = []
     for filename in task_dir.glob("*.json"):
         try:
-            timestamp, pid = re.match(r"(\d+)_(\d+).json", filename.name).groups()
+            timestamp, pid = re.match(r"^(\d+)_(\d+).*.json$", filename.name).groups()
         except:
-            print("invalid filename", filename.name)
+            logger.error("invalid filename", filename.name)
             continue
         with open(filename) as f:
             task = json.load(f)
             task["timestamp"] = int(timestamp)
             task["pid"] = int(pid)
+            task["task_filename"] = filename.name
         if task["status"] in ("open", "processing"):
             # since there's only ever one of these running,
             # processing means 'failed, try again'
@@ -88,7 +93,7 @@ def get_open_tasks():
 def update_task(task, updates):
     out = task.copy()
     out.update(updates)
-    filename = task_dir / f"{task['timestamp']}_{task['pid']}.json"
+    filename = task_dir / task["task_filename"]
     with open(filename, "w") as f:
         json.dump(out, f, indent=2)
     add_event(
@@ -113,7 +118,7 @@ def add_event(event):
     event["source"] = "archival_tool.py"
     with open(filename, "w") as f:
         json.dump(event, f, indent=2)
-    print("added event", event)
+    logger.info(f"added event {event}")
     last_event_time = time.time()
 
 
@@ -132,15 +137,12 @@ def random_text(n):
 def find_last_provided_download(to_send):
     last_provided_download = None
     for event in load_events():
-        if (
-            event.get("type", "") == "run_download_provided"
-            and event["to_send"] == to_send
-        ):
+        if event.get("type", "") == "run_download_provided" and event["run"] == to_send:
             last_provided_download = event["filename"]
         # can't do it like that because of the nesting
         # elif event['type'] == "run_download_removed" and event['run'] == run:
         # last_provided_download = None
-    print("last provided", last_provided_download)
+    logger.debug(f"last provided download for {to_send}: {last_provided_download}")
     if last_provided_download and (download_dir / last_provided_download).exists():
         return last_provided_download
     else:
@@ -160,7 +162,7 @@ def tar_output_folders(input_folders, output_file):
         # remove working/ from start
         ip = ip.relative_to(working_dir)
         cmd.append(str(ip))
-    print(cmd)
+    logger.debug(f"taring output folders with {cmd}")
     # has_any_fastq_files = any((True for x in input_folder.glob("**/*.fastq*")))
     # if exclude_data_folder and has_any_fastq_files:
     #     cmd.insert(1, ["--exclude", "Data"])
@@ -183,7 +185,8 @@ def tar_and_encrypt(input_folder, output_file):
         # "Data",
         "--exclude={*.fastq.gz}",
         "--use-compress-program",
-        "zstd -19",
+        "zstd",
+        # "zstd -19",
         "-c",
         str(input_folder.name),
     ]
@@ -223,8 +226,8 @@ def decrypt_and_untar(encrypted_file, output_folder, key):
                 "-",
             ]
             tar_cmd = ["tar", "--zstd", "-x"]
-            print(rage_cmd)
-            print(tar_cmd)
+            logger.debug(f"rage cmd: {rage_cmd}")
+            logger.debug(f"tar cmd: {tar_cmd}")
             process_rage = subprocess.Popen(rage_cmd, stdout=subprocess.PIPE)
             process_tar = subprocess.Popen(
                 tar_cmd, stdin=process_rage.stdout, cwd=output_folder
@@ -267,50 +270,58 @@ def find_run_alignment(run, alignment):
         raise ValueError("Alignment not found", run, alignment, candidate)
 
 
-def get_template():
-    path = data_dir / "template.txt"
-    try:
-        return path.read_text()
-    except:
-        return default_template
+def apply_template(template_name, template_data):
+    # find latest version of the template from the events
+    template = None
+    for event in reversed(load_events()):
+        if (
+            event.get("type", "") == "template_changed"
+            and event["name"] == template_name
+        ):
+            template = event["text"]
+            subject = event["subject"]
+            break
+    if template is None:
+        template = default_templates[template_name]["default"]
+        subject = default_templates[template_name]["subject"]
+    from pybars import Compiler
+
+    compiler = Compiler()
+    template = compiler.compile(template)
+    return subject, template(template_data)
 
 
-def send_email(receivers, invalidation_timestamp, comment, filename):
-    with open(secret_file) as f:
-        secrets = json.load(f)
+def send_email(receivers, template_name, template_data):
     sender = secrets["mail"]["sender"]
     username = secrets["mail"]["username"]
     password = secrets["mail"]["password"]
     smtp_server = secrets["mail"]["host"]
     smtp_port = secrets["mail"]["port"]
-    template = get_template()
-    url = secrets["mail"]["url"] + filename
-    message = template.replace("%URL%", url)
-    invalidation_date = datetime.datetime.fromtimestamp(invalidation_timestamp)
-    message = message.replace("%DELETION_DATE%", invalidation_date.strftime("%Y-%m-%d"))
-    message = message.replace(
-        "%DAYS%", str((invalidation_date - datetime.datetime.now()).days)
-    )
-    if comment:
-        message = message.replace("%COMMENT%", comment)
-    else:
-        message = message.replace("%COMMENT%", "(no comment provided)")
+    subject, message = apply_template(template_name, template_data)
 
     msg = MIMEText(message)
-    msg["Subject"] = "Sequencing run ready for download"
+    msg["Subject"] = subject
     msg["From"] = sender
     msg["To"] = ",".join(receivers)
-    s = smtplib.SMTP(smtp_server, smtp_port)
-    s.starttls()
-    s.login(username, password)
-    res = s.sendmail(msg["From"], receivers, msg.as_string())
-    if res:
-        raise ValueError(res)
-    res = s.quit()
-    return str(msg)
+    if do_send_emails:
+        s = smtplib.SMTP(smtp_server, smtp_port)
+        s.starttls()
+        s.login(username, password)
+        res = s.sendmail(msg["From"], receivers, msg.as_string())
+        if res:
+            raise ValueError(res)
+        res = s.quit()
+    add_event(
+        {
+            "type": "email_send",
+            "contents": str(msg.as_string()),
+        }
+    )
+    return msg.as_string()
 
 
 def provide_download_link(task):
+    logger.debug("providing download link")
     to_send = task["to_send"]
     if len(to_send) == 0:
         name = to_send[0].split("___")[0]
@@ -327,7 +338,6 @@ def provide_download_link(task):
             os.link(download_dir / last_provided_download, download_dir / output_name)
         else:
             # todo: this is what we need to implement next
-            print(task)
             paths_to_include = []
             for run_alignment in to_send:
                 run, alignment = run_alignment.split("___")
@@ -335,15 +345,26 @@ def provide_download_link(task):
                     paths_to_include.append(find_run(run))
                 else:
                     paths_to_include.append(find_run_alignment(run, alignment))
-            print(paths_to_include)
+            logger.debug(f"including these paths: {paths_to_include}")
             tar_output_folders(paths_to_include, download_dir / output_name)
         if task["receivers"]:
             try:
                 email = send_email(
                     task["receivers"],
-                    task["invalid_after"],
-                    task["comment"],
-                    output_name,
+                    "download_ready",
+                    {
+                        "URL": secrets["mail"]["url"] + output_name,
+                        "SIZE": format_number(
+                            (download_dir / output_name).stat().st_size
+                        ),
+                        "DELETION_DATE": format_date(
+                            datetime.datetime.fromtimestamp(task["invalid_after"])
+                        ),
+                        "DAYS": days_until(
+                            datetime.datetime.fromtimestamp(task["invalid_after"])
+                        ),
+                        "COMMENT": task["comment"],
+                    },
                 )
                 email_success = "Mail sent:\n" + email
             except Exception as e:
@@ -377,6 +398,7 @@ def provide_download_link(task):
 
 
 def cleanup_downloads():
+    logger.info("cleanup downloads")
     invalidation_dates = {}
     for event in load_events():
         if event["type"] == "run_download_provided":
@@ -386,12 +408,12 @@ def cleanup_downloads():
                 del invalidation_dates[event["filename"]]
             except KeyError:
                 pass
-    now = time.time()
+    now = NOW.timestamp()
     for filename in download_dir.glob("*"):
         if filename.is_file():
             if filename.name in invalidation_dates:
                 if invalidation_dates[filename.name]["invalid_after_timestamp"] < now:
-                    print("Delete download", filename)
+                    logger.info(f"Delete download {filename}, because it was expired")
                     filename.unlink()
                     add_event(
                         {
@@ -401,8 +423,11 @@ def cleanup_downloads():
                         }
                     )
                 else:
-                    # print('keep download', filename)
                     pass
+            else:
+                logger.error(
+                    f"Found download file for which I had no expiration date {filename}"
+                )
 
 
 def extract_american_date_and_convert_to_unix_timestamp(input_str):
@@ -510,12 +535,12 @@ def discover_runs():
             else:
                 raise ValueError("could not extract date", rta_complete)
 
-        alignment_detection_file = rta_complete.parent / "Alignment_1"
-        print(alignment_detection_file)
-        if alignment_detection_file.exists():
+        alignment_detection_file = rta_complete.parent / "CompletedJobInfo.xml"
+        run_info_file = rta_complete.parent / "RunInfo.xml"
+        if alignment_detection_file.exists() and not run_info_file.exists():
             if not run in current:
                 # we exploit that it's parents before children in globbing with **
-                print(current, run)
+                logger.info(f"Current: {current}, run: {run}")
                 raise ValueError("run had alignment, but is not in current?!)")
             for possibly_alignment_dir in rta_complete.parent.glob("*"):
                 if (
@@ -579,6 +604,7 @@ def store_hash(filename):
 
 
 def delete_run(task):  # from working dir.
+    logger.debug("Deleting run")
     source = find_run(task["run"])
     target = deleted_dir / task["run"]
     shutil.copytree(source, target, dirs_exist_ok=True)
@@ -601,34 +627,56 @@ def delete_run(task):  # from working dir.
             store_hash(filename)
             filename.unlink()
 
-    add_event({"type": "run_deleted_from_working_set", "run": task["run"]})
+    add_event(
+        {
+            "type": "run_deleted_from_working_set",
+            "run": task["run"],
+            "deletion_timestamp": time.time(),
+        }
+    )
+
+
+def parse_iso_date(s):
+    return datetime.datetime.strptime(s, "%Y-%m-%d")
+
+
+def format_number(number):
+    return "{:,}".format(number)
+
+
+def format_date(dt):
+    return dt.strftime("%Y-%m-%d")
+
+
+def days_until(dt):
+    return (dt - NOW).days
 
 
 def add_time_interval(start_datetime, interval_name):
-    value= times[interval_name]['value']
-    unit = times[interval_name]['unit']
-    if unit == 'seconds':
+    value = times[interval_name]["value"]
+    unit = times[interval_name]["unit"]
+    if unit == "seconds":
         return start_datetime + datetime.timedelta(seconds=value)
-    elif unit == 'minutes':
+    elif unit == "minutes":
         return start_datetime + datetime.timedelta(minutes=value)
-    elif unit == 'hours':
+    elif unit == "hours":
         return start_datetime + datetime.timedelta(hours=value)
-    if unit == 'days':
+    if unit == "days":
         return start_datetime + datetime.timedelta(days=value)
-    elif unit == 'weeks':
+    elif unit == "weeks":
         return start_datetime + datetime.timedelta(weeks=value)
-    elif unit == 'months':
+    elif unit == "months":
         return start_datetime + dateutil.relativedelta.relativedelta(months=value)
-    elif unit == 'years':
+    elif unit == "years":
         return start_datetime + dateutil.relativedelta.relativedelta(years=value)
+
 
 def archive_run(task):
     source = find_run(task["run"])
     source_folder = str(source.relative_to(working_dir).parent)
     target = archived_dir / (safe_name(task["run"]) + ".tar.zstd.age")
     key, size = tar_and_encrypt(source, target)
-    today = datetime.datetime.today()
-    end_date = add_time_interval(today, 'archive')
+    end_date = add_time_interval(NOW, "archive")
     end_timestamp = int(time.mktime(end_date.timetuple()))
     add_event(
         {
@@ -645,6 +693,7 @@ def archive_run(task):
 
 
 def unarchive_run(task):
+    logger.debug("unarchiving run")
     events = load_events()
     for ev in reversed(events):
         if ev["type"] == "run_archived" and ev["run"] == task["run"]:
@@ -682,18 +731,21 @@ def find_archive(run):
 
 
 def delete_from_archive(task):
+    logger.debug("Deleting from archive")
     target = archived_dir / find_archive(task["run"])
     target.unlink()
     add_event(
         {
             "type": "run_deleted_from_archive",
             "run": task["run"],
+            "archive_deletion_date": time.time(),
         }
     )
     update_task(task, {"status": "done"})
 
 
 def sort_by_date(task):
+    logger.debug("Sort_by_date")
     for fn in working_dir.glob("*"):
         if fn.is_dir():
             if len(fn.name) <= 4:
@@ -715,85 +767,214 @@ def sort_by_date(task):
     update_task(task, {"status": "done"})
 
 
-for task in get_open_tasks():
-    print("got task", task)
-    if task["type"] == "provide_download_link":
-        update_task(task, {"status": "processing"})
-        provide_download_link(task)
-    elif task["type"] == "delete_run":
-        if task["timestamp"] < (add_time_interval(datetime.datetime.now(), 'deletion_delay')).timestamp():
-            update_task(task, {"status": "processing"})
-            delete_run(task)
-            update_task(
-                task,
-                {
-                    "status": "done",
-                    "finish_time": int(time.time()),
-                },
-            )
+def send_annotation_email(task):
+    logger.debug("Sending annotation email")
+    info = task
+    run = task["run"]
 
-    elif task["type"] == "archive_run":
-        update_task(task, {"status": "processing"})
-        archive_run(task)
-        if task.get("delete_after_archive", False):
-            delete_run(task)
-        update_task(
-            task,
+    msg = send_email(
+        info["receivers"],
+        "run_completed",
+        {
+            "RUN_NAME": run,
+            "DELETION_DATE": format_date(
+                datetime.datetime.fromtimestamp(info["deletion_date"])
+            ),
+            "DAYS": days_until(datetime.datetime.fromtimestamp(info["deletion_date"])),
+            "DO_ARCHIVE": bool(info["do_archive"]),
+            "ARCHIVE_UNTIL": info.get("archive_deletion_date", None),
+            "COMMENT": info["comment"],
+            "DOWNLOAD_BEING_PREPARED": info["send_download_link"],
+            "UPDATE": info["is_update"],
+        },
+    )
+    update_task(task, {"status": "done", "email": msg})
+
+
+def send_deletion_warnings():
+    logger.debug("send_deletion_warnings")
+    events = load_events()
+    warned = {
+        x["info"].get("RUN_NAME", x["info"].get("RUN"))
+        for x in events
+        if x["type"] == "deletion_warning_sent"
+    }
+    warn_if_deleted_before_this_date = add_time_interval(NOW, "deletion_warning")
+    to_warn = []
+    for event in events:
+        if event["type"] == "run_annotated":
+            if event["run_finished"]:
+                deletion_date_time = datetime.datetime.fromtimestamp(
+                    event["deletion_date"]
+                )
+                if deletion_date_time < warn_if_deleted_before_this_date:
+                    if event["run"] not in warned:
+                        to_warn.append(
+                            {
+                                "run": event["run"],
+                                "receivers": event["receivers"],
+                                "deletion_date_time": deletion_date_time,
+                                "do_archive": event["do_archive"],
+                                "archive_until_date": event.get(
+                                    "archive_until_date", None
+                                ),
+                            }
+                        )
+    for target in to_warn:
+        if target["archive_until_date"] is not None:
+            archive_until_date = format_date(target["archive_until_date"])
+        else:
+            archive_until_date = None
+        info = {
+            "RUN_NAME": target["run"],
+            "DELETION_DATE": format_date(target["deletion_date_time"]),
+            "DAYS": days_until(target["deletion_date_time"]),
+            "DO_ARCHIVE": target["do_archive"],
+            "ARCHIVE_UNTIL": archive_until_date,
+            "RECEIVERS": target["receivers"],
+        }
+        send_email(target["receivers"], "run_about_to_be_deleted", info)
+        print(repr(target))
+        add_event(
             {
-                "status": "done",
-                "finish_time": int(time.time()),
-            },
+                "type": "deletion_warning_sent",
+                "info": info,
+            }
         )
-    elif task["type"] == "restore_run":
-        update_task(task, {"status": "processing"})
-        unarchive_run(task)
-    elif task["type"] == "remove_from_archive":
-        if task["timestamp"] < (add_time_interval(datetime.datetime.now(), 'deletion_delay')).timestamp():
-            update_task(task, {"status": "processing"})
-            delete_from_archive(task)
-    elif task["type"] == "sort_by_date":
-        update_task(task, {"status": "processing"})
-        sort_by_date(task)
+
+
+def send_archive_deletion_warnings():
+    logger.debug("send_archive_deletion_warnings")
+    events = load_events()
+    warned = {
+        x["info"].get("RUN_NAME", x["info"].get("RUN"))
+        for x in events
+        if x["type"] == "archive_deletion_warning_sent"
+    }
+    warn_if_deleted_before_this_date = add_time_interval(
+        NOW, "archive_deletion_warning"
+    )
+    to_warn = []
+    for event in events:
+        if event["type"] == "run_annotated":
+            if event["run_finished"] and event["do_archive"]:
+                deletion_date_time = datetime.datetime.fromtimestamp(
+                    event["archive_deletion_date"]
+                )
+                if deletion_date_time < warn_if_deleted_before_this_date:
+                    if event["run"] not in warned:
+                        to_warn.append(
+                            {
+                                "run": event["run"],
+                                "receivers": event["receivers"],
+                                "archive_deletion_date": deletion_date_time,
+                            }
+                        )
+    for target in to_warn:
+        info = {
+            "RUN_NAME": target["run"],
+            "DAYS": days_until(target["archive_deletion_date"]),
+            "ARCHIVE_UNTIL": format_date(target["archive_deletion_date"]),
+            "RECEIVERS": target["receivers"],
+        }
+        send_email(target["receivers"], "run_about_to_be_deleted", info)
+        add_event(
+            {
+                "type": "archive_deletion_warning_sent",
+                "info": info,
+            }
+        )
 
 
 class TestTimeIntervals(unittest.TestCase):
-
     def test_add_interval(self):
         start = datetime.datetime(2021, 1, 1, 0, 0, 0)
-        times['test'] = {'value': 1, 'unit': 'seconds'}
-        end = add_time_interval(start, 'test')
+        times["test"] = {"value": 1, "unit": "seconds"}
+        end = add_time_interval(start, "test")
         assert end == datetime.datetime(2021, 1, 1, 0, 0, 1)
-        times['test'] = {'value': 1, 'unit': 'minutes'}
-        end = add_time_interval(start, 'test')
+        times["test"] = {"value": 1, "unit": "minutes"}
+        end = add_time_interval(start, "test")
         assert end == datetime.datetime(2021, 1, 1, 0, 1, 0)
-        times['test'] = {'value': 1, 'unit': 'hours'}
-        end = add_time_interval(start, 'test')
+        times["test"] = {"value": 1, "unit": "hours"}
+        end = add_time_interval(start, "test")
         assert end == datetime.datetime(2021, 1, 1, 1, 0, 0)
-        times['test'] = {'value': 1, 'unit': 'days'}
-        end = add_time_interval(start, 'test')
+        times["test"] = {"value": 1, "unit": "days"}
+        end = add_time_interval(start, "test")
         assert end == datetime.datetime(2021, 1, 2, 0, 0, 0)
-        times['test'] = {'value': 1, 'unit': 'weeks'}
-        end = add_time_interval(start, 'test')
+        times["test"] = {"value": 1, "unit": "weeks"}
+        end = add_time_interval(start, "test")
         assert end == datetime.datetime(2021, 1, 8, 0, 0, 0)
-        times['test'] = {'value': 1, 'unit': 'months'}
-        end = add_time_interval(start, 'test')
+        times["test"] = {"value": 1, "unit": "months"}
+        end = add_time_interval(start, "test")
         assert end == datetime.datetime(2021, 2, 1, 0, 0, 0)
-        times['test'] = {'value': 1, 'unit': 'years'}
-        end = add_time_interval(start, 'test')
+        times["test"] = {"value": 1, "unit": "years"}
+        end = add_time_interval(start, "test")
         assert end == datetime.datetime(2022, 1, 1, 0, 0, 0)
-        times['test'] = {'value': 31, 'unit': 'days'}
-        end = add_time_interval(start, 'test')
+        times["test"] = {"value": 31, "unit": "days"}
+        end = add_time_interval(start, "test")
         assert end == datetime.datetime(2021, 2, 1, 0, 0, 0)
-        times['test'] = {'value': 15, 'unit': 'months'}
-        end = add_time_interval(start, 'test')
+        times["test"] = {"value": 15, "unit": "months"}
+        end = add_time_interval(start, "test")
         assert end == datetime.datetime(2022, 4, 1, 0, 0, 0)
 
 
-if __name__ == '__main__':
-    if '--test' in sys.argv:
-        sys.argv.remove('--test')
+if __name__ == "__main__":
+    if "--test" in sys.argv:
+        sys.argv.remove("--test")
         unittest.main()
 
     else:
+        logger.info("Startup")
         cleanup_downloads()
+        for task in get_open_tasks():
+            logger.debug(f"got open task: {task}")
+            if task["type"] == "provide_download_link":
+                update_task(task, {"status": "processing"})
+                provide_download_link(task)
+            elif task["type"] == "delete_run":
+                if (
+                    task["timestamp"]
+                    < (add_time_interval(NOW, "deletion_delay")).timestamp()
+                ):
+                    update_task(task, {"status": "processing"})
+                    delete_run(task)
+                    update_task(
+                        task,
+                        {
+                            "status": "done",
+                            "finish_time": int(time.time()),
+                        },
+                    )
+
+            elif task["type"] == "archive_run":
+                update_task(task, {"status": "processing"})
+                archive_run(task)
+                if task.get("delete_after_archive", False):
+                    delete_run(task)
+                update_task(
+                    task,
+                    {
+                        "status": "done",
+                        "finish_time": int(time.time()),
+                    },
+                )
+            elif task["type"] == "restore_run":
+                update_task(task, {"status": "processing"})
+                unarchive_run(task)
+            elif task["type"] == "remove_from_archive":
+                if (
+                    task["timestamp"]
+                    < (add_time_interval(NOW, "deletion_delay")).timestamp()
+                ):
+                    update_task(task, {"status": "processing"})
+                    delete_from_archive(task)
+            elif task["type"] == "sort_by_date":
+                update_task(task, {"status": "processing"})
+                sort_by_date(task)
+            elif task["type"] == "send_annotation_email":
+                update_task(task, {"status": "processing"})
+                send_annotation_email(task)
+
+        send_deletion_warnings()
+        send_archive_deletion_warnings()
         discover_runs()

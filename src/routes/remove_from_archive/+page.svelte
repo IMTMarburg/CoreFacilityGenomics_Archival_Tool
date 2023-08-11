@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { event_details, hash_string } from "$lib/util";
+  import { event_details, hash_string, last_annotation } from "$lib/util";
   import RunDisplay from "$lib/components/RunDisplay.svelte";
   import DatePeriod from "$lib/components/DatePeriod.svelte";
   import * as EmailValidator from "email-validator";
@@ -51,7 +51,7 @@
                 newline={false}
               /><br />
               Archive end_date: <DatePeriod
-                timestamp={run.archive_end_date}
+                timestamp={last_annotation(run,'archive_deletion_date')}
                 newline={false}
               /><br />
 			  Currently in working set: {@html run.in_working_set ? "Yes" : "<b class=danger>No</b>"}

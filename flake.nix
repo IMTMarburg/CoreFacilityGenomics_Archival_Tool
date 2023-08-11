@@ -65,7 +65,7 @@
               doCheck = false;
               propagatedBuildInputs = [pymeta3];
             };
-            mypython = pkgs.python3.withPackages (p: [pybars p.toml p.python-dateutil]);
+            mypython = pkgs.python3.withPackages (p: [pybars p.toml p.python-dateutil p.loguru]);
           in
             pkgs.writeShellApplication {
               name = "cfgat_archival_worker";

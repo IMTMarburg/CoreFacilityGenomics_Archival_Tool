@@ -9,7 +9,7 @@
 <div>
 {#if text.length > threshold }
 	{#if show_long}
-	<div class="long" on:click={() => {show_long = false}}>
+	<div class="long" on:dblclick={() => {show_long = false}}>
 	{@html text}
 	</div>
 	{:else}

@@ -11,6 +11,9 @@ export function iso_date(date: Date) {
 }
 
 export function isodate_to_timestamp(iso: string) {
+  if (iso == null) {
+    return null;
+  }
   //parse iso date YYYY-mm-dd into timestamp
   let re = /(\d+)-(\d+)-(\d+)/;
   let match = re.exec(iso);
@@ -92,94 +95,6 @@ export function event_details(event: object) {
   }
 }
 
-export async function load_events() {
-  return await load_json_log("events");
-}
-
-export async function load_tasks() {
-  return await load_json_log("tasks");
-}
-
-async function load_json_log(key: string) {
-  let target_dir = process.env.DATA_DIR + "/" + key;
-  //now for each json file in target_dir
-  //parse filename into timestamp_pid.json
-  //read file, parse json, add timestamp = timestamp,
-
-  let events = [];
-  const files = await fs.promises.readdir(target_dir);
-  for (const file of files) {
-    let re = /(\d+)_(\d+)_?(\d+)?\.json/;
-    let match = re.exec(file);
-    if (match) {
-      //read the file
-      let raw = await fs.promises.readFile(target_dir + "/" + file);
-      try {
-        let parsed = JSON.parse(raw);
-        let timestamp_int = parseInt(match[1]);
-        let pid_int = parseInt(match[2]);
-        let count_int = 0;
-        try {
-          count_int = parseInt(match[3]);
-        } catch (e) {
-        }
-        parsed["timestamp"] = timestamp_int;
-        parsed["pid"] = pid_int;
-        parsed["count"] = count_int;
-        events.push(parsed);
-      } catch (e) {
-        console.log("Error parsing json file " + file, e);
-      }
-    }
-  }
-  //sort by timestamp, then pid
-  events.sort(function (a, b) {
-    if (a.timestamp == b.timestamp) {
-      if (a.pid == b.pid) {
-        return a.count - b.count;
-      }
-      return a.pid - b.pid;
-    }
-    return a.timestamp - b.timestamp;
-  });
-  return events;
-}
-
-export async function add_json_log(key: string, data: object) {
-  let target_dir = process.env.DATA_DIR + "/" + key;
-  let timestamp = Math.floor(Date.now() / 1000);
-  let pid = process.pid;
-  let filename = `${timestamp}_${pid}.json`;
-  let filepath = `${target_dir}/${filename}`;
-  //http header for authentificated user or 'web'
-  let json = JSON.stringify(data, null, 2);
-  //now write it to the file
-  await fs.promises.writeFile(filepath, json);
-}
-
-export async function add_task(type: string, task: object, user) {
-  task["type"] = type;
-  task["status"] = "open";
-  task["source"] = user;
-  await add_json_log("tasks", task);
-  await add_event("task_added", { "task": task }, user);
-}
-
-export async function update_task(task: object, new_values: object) {
-  let out = Object.assign({}, task, new_values);
-  let target_dir = process.env.DATA_DIR + "/tasks";
-  let filename = `${task.timestamp}_${task.pid}.json`;
-  let filepath = `${target_dir}/${filename}`;
-  let json = JSON.stringify(out, null, 2);
-  await fs.promises.writeFile(filepath, json);
-}
-
-export async function add_event(type: string, data: object, user: string) {
-  data["type"] = type;
-  data["source"] = user;
-  add_json_log("events", data);
-}
-
 interface Run {
   name: string;
   download_available?: boolean;
@@ -197,88 +112,6 @@ interface Run {
 type RunMap = {
   [name: string]: Run;
 };
-
-export async function load_runs() {
-  let events = await load_events();
-
-  let runs: RunMap = {};
-  //group events by run
-  for (let ev of events) {
-    if (ev.type == "run_discovered") {
-      runs[ev.run] = {
-        name: ev.run,
-        run_finish_date: ev.run_finish_date,
-        download_count: 0,
-        in_working_set: true,
-        earliest_deletion_timestamp: parseInt(ev.earliest_deletion_timestamp),
-        sample_sheet: ev.sample_sheet,
-        alignments: [],
-        annotations: [],
-      };
-    } else if (ev.type == "run_download_provided") {
-      //g     runs[ev.run]["download_available"] = true;
-      //runs[ev.run]["download_name"] = ev.filename;
-    } else if (ev.type == "run_download_expired") {
-      runs[ev.run]["download_available"] = false;
-    } else if (ev.type == "run_downloaded") {
-      //runs[ev.run]["download_count"] += 1;
-    } else if (ev.type == "run_deleted_from_working_set") {
-      runs[ev.run]["in_working_set"] = false;
-    } else if (ev.type == "run_restored_to_working_set") {
-      runs[ev.run]["in_working_set"] = true;
-    } else if (ev.type == "run_archived") {
-      runs[ev.run]["in_archive"] = true;
-      runs[ev.run]["archive_date"] = ev.archive_date;
-      runs[ev.run]["archive_end_date"] = ev.archive_end_date;
-      runs[ev.run]["archive_size"] = ev.size;
-    } else if (ev.type == "run_deleted_from_archive") {
-      runs[ev.run]["in_archive"] = false;
-    } else if (ev.type == "alignment_discovered") {
-      runs[ev.run]["alignments"].push(ev.alignment);
-    } else if (ev.type == "alignment_removed") {
-      //remove alignment from list
-      let index = runs[ev.run]["alignments"].indexOf(ev.alignment);
-      if (index > -1) {
-        runs[ev.run]["alignments"].splice(index, 1);
-      }
-    } else if (ev.type == "run_annotated") {
-      runs[ev.run]["annotations"].push(ev.annotation);
-    }
-  }
-  //runs is an object, not an array
-  //so we need to sort the keys
-  let run_names = Object.keys(runs);
-  run_names.sort();
-  run_names.reverse();
-  let sorted_runs = {};
-  for (let run_name of run_names) {
-    sorted_runs[run_name] = runs[run_name];
-  }
-  return sorted_runs;
-}
-
-export async function load_workingdir_runs() {
-  let runs = await load_runs();
-  //filter to those with in_working_set
-  let workingdir_runs = [];
-  for (let run_name in runs) {
-    if (runs[run_name]["in_working_set"]) {
-      workingdir_runs.push(runs[run_name]);
-    }
-  }
-  return workingdir_runs;
-}
-export async function load_archived_runs() {
-  let runs = await load_runs();
-  //filter to those with in_working_set
-  let workingdir_runs = [];
-  for (let run_name in runs) {
-    if (runs[run_name]["in_archive"] == true) {
-      workingdir_runs.push(runs[run_name]);
-    }
-  }
-  return workingdir_runs;
-}
 
 export async function hash_string(message: string): string {
   const encoder = new TextEncoder();
@@ -317,48 +150,6 @@ export function toIsoStringTZO(date, include_time) {
     "-" +
     pad(date.getDate())
   );
-}
-
-export async function pending_sorts() {
-  let open_tasks = [];
-  let tasks = await load_tasks();
-  for (let task of tasks) {
-    if (
-      task["type"] == "sort_by_date" &&
-      (task["status"] == "open" || task["status"] == "processing")
-    ) {
-      open_tasks.push(task);
-    }
-  }
-  return open_tasks;
-}
-
-export async function load_template(name: string, default_text: string) {
-  let events = await load_events();
-  let result = default_text;
-  for (let ev of events) {
-    if ((ev.type == "template_changed") && (ev.name == name)) {
-      result = ev.text;
-    }
-  }
-  return result;
-}
-
-export async function save_template(
-  name: string,
-  template: string,
-  user: string,
-): Promise<Boolean> {
-  let old_template = await load_template(name, "");
-  if (old_template != template) {
-    await add_event("template_changed", {
-      "name": name,
-      "text": template,
-    }, user);
-    return true;
-  } else {
-    return false;
-  }
 }
 
 export function plus_days(date: Date, days: number) {
@@ -443,4 +234,53 @@ export function add_time_interval(
   } else if (unit == "years") {
     return plus_years(start_time, value);
   }
+}
+
+export function get_now(cookies) {
+  //is cookies a string?
+  if (typeof cookies == "string") { //see DatePeriod Component
+    return isodate_to_timestamp(cookies);
+  }
+  if (cookies != null && cookies.get("fake_date") != undefined) {
+    return isodate_to_timestamp(cookies.get("fake_date"));
+  } else {
+    return Date.now() / 1000;
+  }
+}
+
+export function last_annotation(run, key) {
+  if (run.annotations == undefined || run.annotations.length == 0) {
+    return null;
+  }
+  let last = run.annotations[run.annotations.length - 1];
+  if (last == -1) {
+    return null;
+  }
+  return run.annotations[run.annotations.length - 1][key];
+}
+
+export function runs_to_names(runs) {
+  var named = {};
+  for (let r of runs) {
+    if (r["run"] != undefined) {
+      named[r["run"]] = true;
+    } else if (r["name"] != undefined) {
+      named[r["name"]] = true;
+    } else {
+      throw new Error("Run had neither name nor run.");
+    }
+  }
+  return named;
+}
+
+export function contains_all_words(haystack: string, needle: string) {
+  let haystack2 = haystack.toLowerCase();
+  let needle2 = needle.toLowerCase();
+  let words = needle2.split(" ");
+  for (let word of words) {
+    if (haystack2.indexOf(word) == -1) {
+      return false;
+    }
+  }
+  return true;
 }

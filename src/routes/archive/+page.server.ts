@@ -1,13 +1,19 @@
 import { fail } from "@sveltejs/kit";
 
-import { add_task } from "$lib/util";
+import {
+  add_task,
+  runs_can_be_archived,
+  load_runs,
+  load_tasks,
+  pending_archivals,
+} from "$lib/data";
 
-import { load_archivable_runs, pending_archivals } from "$lib/data";
-
-export async function load() {
-  let open_tasks = await pending_archivals();
+export async function load({ cookies }) {
+  let tasks = await load_tasks();
+  var run_list = await load_runs();
+  let open_tasks = pending_archivals(tasks);
   return {
-    runs: await load_archivable_runs(),
+    runs: runs_can_be_archived(cookies, run_list, tasks),
     open_tasks: open_tasks,
   };
 }
@@ -16,7 +22,7 @@ export const actions = {
   archive: async ({ cookies, request, locals }) => {
     const form_data = await request.formData();
     try {
-      let data = await load();
+      let data = await load({ cookies });
       let found = false;
       let found_run = null;
       let found_deleteable = false;

@@ -15,7 +15,6 @@
 </script>
 
 <p>Welcome '{data.user}'.</p>
-base is: '{base}'
 <p>The system has three data storages:</p>
 <ul>
   <li>The working directory (where the sequencer stores data)</li>
@@ -68,7 +67,7 @@ base is: '{base}'
     {#if todo_counts["no annotation"] > 0 || todo_counts["unfinished annotation"] > 0}
       <li>
         <a href="{base}/annotate_run"
-          >Add annotates (missing: {todo_counts["no annotation"]}, unfinished: {todo_counts[
+          >Add annotation (missing: {todo_counts["no annotation"]}, unfinished: {todo_counts[
             "unfinished annotion"
           ]})</a
         >
@@ -104,9 +103,6 @@ base is: '{base}'
   <li><a href="{base}/unarchive">Restore from archive</a></li>
   <li><a href="{base}/delete">Delete from working</a></li>
   <li><a href="{base}/remove_from_archive">Delete from archive</a></li>
-  <br />
-  <li><a href="{base}/sort_by_date">Sort runs by date</a></li>
-  <li><a href="{base}/mail_template">Change mail templates</a></li>
 </ul>
 <h2>Inspection</h2>
 <ul>
@@ -115,3 +111,9 @@ base is: '{base}'
   <li><a href="{base}/events">Event log</a></li>
   <li><a href="{base}/log">Background process output</a></li>
 </ul>
+<h2>Maintenance</h2>
+<ul>
+  <li><a href="{base}/sort_by_date">Sort runs by date</a></li>
+  <li><a href="{base}/mail_template">Change mail templates</a></li>
+</ul>
+
