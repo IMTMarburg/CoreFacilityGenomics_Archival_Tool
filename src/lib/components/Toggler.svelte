@@ -1,7 +1,8 @@
 <script lang="ts">
 
   export let text = "";
-  let show_long = false;
+  export let expanded = false;
+  let show_long = expanded == "true";
 
 function toggleDisplay() {
     show_long = !show_long;

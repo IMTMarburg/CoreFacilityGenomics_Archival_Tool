@@ -118,6 +118,7 @@ export async function load_runs() {
         runs[ev.run]["alignments"].splice(index, 1);
       }
     } else if (ev.type == "run_annotated") {
+		console.log(ev);
       runs[ev.run]["annotations"].push(ev);
     } else if (ev.type == "deletion_warning_sent") {
       runs[ev.info.RUN_NAME ?? ev.info.RUN]["deletion_warning_sent"] = true;

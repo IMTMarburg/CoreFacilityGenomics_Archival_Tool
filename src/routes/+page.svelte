@@ -16,7 +16,19 @@
 </script>
 
 <p>Welcome '{data.user}'.</p>
-<Toggler text="Click here for system description">
+<h2>Test mode</h2>
+<p>
+  <b>
+    The system is in test mode.
+    <br />
+    All datasets are 'fake/copies', Sourced from incoming/cfgat_test.
+    <br />
+    Emails are being sent.
+    <br />
+  </b>
+</p>
+
+<Toggler text="Click here for system description" expanded="true">
 <h2>Data storage</h2>
 <p>The system has three data storages:</p>
 <ul>
@@ -37,29 +49,39 @@
   You can also inspect the system, and view all events, which allows you to
   trace exactly what was done when (and whether it succeeded).
 </p>
+<h2>Background process</h2>
 <p>
   The background process actually doing the actions starts up every 5 minutes
-  (if it's not currently busy with an action.<br />
+  (if it's not currently busy with an action).<br />
   Some actions (e.g. deletions) are delayed to start at the earliest 15 minutes after
   the request was made. This is so you can actually abort them.
 </p>
 
-<p>
-Workflow: 
+<h2>Workflow</h2> 
+<ol>
+	<li>Sequencer uploads data to working directory and marks the run finished.</li>
+	<li>This system detects the run (and all alignments)</li>
+	<li>You annotated the run with the receiver, mark it as finished, decide on archival (or not) and deletion dates.</li> 
+	<li>The system mails the receivers that their run is finished</li>
+	<li>If requested, the system also generates & mails a download link</li>
+	<li>If set to archive, the system also calculates the size the run will have once archived</li>
+	<li>(You can push deletion/achive dates (and change 'archive-or-not' status into the future (before it actually happend).
+		In that case, a new mail is sent to the receivers.)</li>
+	<li>Before the runs get eligble for deletion/archival/archive-removal, the system sends out a warning mail.
+		(This happens 
+		{data.times.deletion_warning.value} 
+		{data.times.deletion_warning.unit} 
+		before deletion/archival, and 
+		{data.times.archive_deletion_warning.value} 
+		{data.times.archive_deletion_warning.unit} 
+		before archive-removal).
+	</li>
+	<li>Once the email has been sent, the system will list the run in the todos.</li>	
+	</ol>
 
 <p>
   The system considers pending tasks when deciding what you can do, so you can't
   request a restore for something schedulded to be deleted etc.
-</p>
-<p>
-  <b>
-    The system is in test mode.
-    <br />
-    All datasets are 'fake', Sourced from incoming/cfgat_test.
-    <br />
-    Emails are being sent.
-    <br />
-  </b>
 </p>
 </Toggler>
 <hr />
