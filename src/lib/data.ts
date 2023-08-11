@@ -400,7 +400,7 @@ async function add_json_log(key: string, data: object) {
   let counter = last_added_json_timestamps[key][timestamp] ?? 0;
   last_added_json_timestamps[key][timestamp] = counter + 1;
   let pid = process.pid;
-  let filename = `${timestamp}_${pid}_j${counter}.json`;
+  let filename = `${timestamp}_${pid}_${counter}.json`;
   let filepath = `${target_dir}/${filename}`;
   //http header for authentificated user or 'web'
   let json = JSON.stringify(data, null, 2);
