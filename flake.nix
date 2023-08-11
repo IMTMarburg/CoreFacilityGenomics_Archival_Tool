@@ -38,6 +38,9 @@
             name = packageJSON.name;
             runtimeInputs = [site-src pkgs.nodejs pkgs.rage];
             text = ''
+              export TEMPLATE_PATH=${./static/mail_templates.toml}
+              export TIMES_PATH=${./static/times.toml}
+
               node ${site-src}/libexec/${packageJSON.name}/deps/${packageJSON.name}/build
             '';
           };
