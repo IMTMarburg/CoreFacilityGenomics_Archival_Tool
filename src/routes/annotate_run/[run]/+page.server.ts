@@ -10,7 +10,7 @@ import { add_event, add_task, load_runs } from "$lib/data";
 
 export async function load({ params }) {
   let runs = await load_runs();
-  let run = runs[params.run];
+  let run = runs.filter((run) => {return run.name == params.run;})[0];
   if (run == undefined) {
     throw "Run not found";
   }
@@ -27,7 +27,7 @@ export async function load({ params }) {
 }
 
 export const actions = {
-  annotate: async ({ cookies, request, locals, params }) => {
+  annotate: async ({ request, locals, params }) => {
     let data = await load({ params });
     const form_data = await request.formData();
     try {
@@ -56,7 +56,9 @@ export const actions = {
       };
 
       await add_event("run_annotated", out, locals.user);
-      await add_task("send_annotation_email", out, locals.user);
+	  if (run_finished) {
+		  await add_task("send_annotation_email", out, locals.user);
+	  }
       if (send_download_link) {
         let invalidation_date = add_time_interval(
           new Date(),

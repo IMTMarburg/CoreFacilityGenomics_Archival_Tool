@@ -234,6 +234,7 @@ export function add_time_interval(
   } else if (unit == "years") {
     return plus_years(start_time, value);
   }
+  throw new Error("Invalid unit");
 }
 
 export function get_now(cookies) {

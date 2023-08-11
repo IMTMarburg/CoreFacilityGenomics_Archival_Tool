@@ -3,7 +3,7 @@ value = 10
 unit = 'years'
 
 [deletion_delay]
-value = 60
+value = 15
 unit = 'minutes'
 
 [download_retention]

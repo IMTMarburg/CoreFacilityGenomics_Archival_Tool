@@ -1,4 +1,4 @@
-event_count = 100000
+event_count = 10000
 import json
 from pathlib import Path
 import random
@@ -21,7 +21,7 @@ events = [x for x in (Path("data/events").glob("*.json")) if ok_event(x)]
 count = len(events)
 
 while count < event_count:
-    nf = f"7691734943_999_{count}.json"
+    nf = f"1691734943_999_{count}.json"
     input = random.choice(events)
     output = Path("data/events") / nf
     output.write_text(input.read_text())
@@ -36,7 +36,7 @@ tasks = [x for x in (Path("data/tasks").glob("*.json")) if ok_task(x)]
 
 count = len(tasks)
 while count < event_count:
-    nf = f"7691734943_999_{count}.json"
+    nf = f"0691734943_999_{count}.json"
     input = random.choice(tasks)
     output = Path("data/tasks") / nf
     output.write_text(input.read_text())

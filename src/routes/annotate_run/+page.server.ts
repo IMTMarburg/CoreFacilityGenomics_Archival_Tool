@@ -1,10 +1,10 @@
 import { fail } from "@sveltejs/kit";
 
-import { runs_unannotated, runs_annotation_unfinished, load_runs  } from "$lib/data";
+import { last_annotation  } from "$lib/util";
+import { runs_unannotated, runs_annotation_unfinished, load_runs} from "$lib/data";
 
 function any_finished(annotations) {
 	//write to stdout
-	console.log(annotations);
 	for (var idx in annotations) {
 		if (annotations[idx]["run_finished"]) {
 			return true;
@@ -22,7 +22,7 @@ export async function load() {
   let prev_annotated = run_list.filter((run) =>
     run["in_working_set"] && !run["in_archive"]
 	&& (run["annotations"].length > 0)
-	&& (any_finished(run['annotations']))
+	&& (last_annotation(run,"run_finished")?? false)
   );
 
   return {

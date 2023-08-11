@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Toggler from "$lib/components/Toggler.svelte";
   import { base } from "$app/paths";
   export let data;
 
@@ -15,6 +16,8 @@
 </script>
 
 <p>Welcome '{data.user}'.</p>
+<Toggler text="Click here for system description">
+<h2>Data storage</h2>
 <p>The system has three data storages:</p>
 <ul>
   <li>The working directory (where the sequencer stores data)</li>
@@ -27,6 +30,7 @@
     unaffected by working directory changes)
   </li>
 </ul>
+<h2>Actions</h2>
 <p>
   You can request the system to do something via actions.<br />
 
@@ -41,6 +45,9 @@
 </p>
 
 <p>
+Workflow: 
+
+<p>
   The system considers pending tasks when deciding what you can do, so you can't
   request a restore for something schedulded to be deleted etc.
 </p>
@@ -52,15 +59,10 @@
     <br />
     Emails are being sent.
     <br />
-    Minimum time for deletions from working directory has been set to 90 days. (from
-    RTAComplete.txt) date
-    <br />
-    Minimum time for deletions from archive (after archiving) has been set to 1 days.
-    <br />
-    Runs are discovered by having a 'RTAComplete.txt' file in the run directory,
-    which must contain an american formated completion date.
   </b>
 </p>
+</Toggler>
+<hr />
 <h2>Todos</h2>
 {#if anything_todo}
   <ul>

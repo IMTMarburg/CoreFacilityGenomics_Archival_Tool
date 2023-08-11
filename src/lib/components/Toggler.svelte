@@ -16,4 +16,3 @@ function toggleDisplay() {
 		<a href="#" on:click|preventDefault={toggleDisplay}>{text}</a> 
 {/if}
 </div>
-{show_long}

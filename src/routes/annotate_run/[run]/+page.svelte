@@ -70,7 +70,9 @@
 
 {#if form?.success}
   Your annotation was saved. <br />
-  The background process will send emails accordingly.
+  {#if form.run_finished }
+	  The background process will send emails accordingly.
+  {/if}
   <br />
   <br />
   <a href="../annotate_run/">Back to annotation page</a>
