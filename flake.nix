@@ -74,7 +74,7 @@
               name = "cfgat_archival_worker";
               runtimeInputs = [mypython];
               text = ''
-                export TEMPLATE_PATH=${./static/mail_templates.toml}
+                export TEMPLATES_PATH=${./static/mail_templates.toml}
                 export TIMES_PATH=${./static/times.toml}
                 ${mypython}/bin/python ${./python/archival_tool.py}
               '';
