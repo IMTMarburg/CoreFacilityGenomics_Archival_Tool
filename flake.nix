@@ -72,6 +72,7 @@
               runtimeInputs = [mypython];
               text = ''
                 export TEMPLATE_PATH=${./static/mail_templates.toml}
+                export TIMES_PATH=${./static/times.toml}
                 ${mypython}/bin/python ${./python/archival_tool.py}
               '';
             };
@@ -82,6 +83,7 @@
           shellHook = ''
             export PATH=$PATH:$(pwd)/node_modules/.bin/
             export TEMPLATES_PATH=$(pwd)/static/mail_templates.toml
+            export TIMES_PATH=$(pwd)/static/mail_templates.toml
           '';
         };
       }

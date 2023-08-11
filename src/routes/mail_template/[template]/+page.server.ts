@@ -1,10 +1,11 @@
 import { fail } from "@sveltejs/kit";
+import process from "process";
 import { load_template, save_template } from "$lib/data";
 import toml from "toml";
 import fs from "fs";
 
 export async function load({ params }) {
-  let toml_str = fs.readFileSync("./static/mail_templates.toml").toString();
+  let toml_str = fs.readFileSync(process.env.TEMPLATES_PATH).toString();
   let templates = toml.parse(toml_str);
   let template_name = params.template;
   let default_template = templates[template_name]["default"];
