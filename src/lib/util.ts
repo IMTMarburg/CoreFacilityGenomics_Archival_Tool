@@ -268,6 +268,7 @@ export function runs_to_names(runs) {
     } else if (r["name"] != undefined) {
       named[r["name"]] = true;
     } else {
+		console.log(r)
       throw new Error("Run had neither name nor run.");
     }
   }

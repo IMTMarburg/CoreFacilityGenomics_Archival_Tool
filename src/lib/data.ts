@@ -143,36 +143,36 @@ export async function load_runs() {
 
 export function pending_archivals(tasks) {
   return tasks.filter((task) =>
-    task["type"] == "archive_run" && task["status"] == "open" ||
-    task["status"] == "processing"
+    task["type"] == "archive_run" && (task["status"] == "open" ||
+      task["status"] == "processing")
   );
 }
 
 export function pending_deletions(tasks) {
   return tasks.filter((task) =>
-    task["type"] == "delete_run" && task["status"] == "open" ||
-    task["status"] == "processing"
+    task["type"] == "delete_run" && (task["status"] == "open" ||
+      task["status"] == "processing")
   );
 }
 
 export function pending_restores(tasks) {
   return tasks.filter((task) =>
-    task["type"] == "restore_run" && task["status"] == "open" ||
-    task["status"] == "processing"
+    task["type"] == "restore_run" && (task["status"] == "open" ||
+    task["status"] == "processing")
   );
 }
 
 export function pending_archive_deletions(tasks) {
   return tasks.filter((task) =>
-    task["type"] == "remove_from_archive" && task["status"] == "open" ||
-    task["status"] == "processing"
+    task["type"] == "remove_from_archive" && (task["status"] == "open" ||
+      task["status"] == "processing")
   );
 }
 
 export function pending_sorts(tasks) {
   return tasks.filter((task) =>
-    task["type"] == "sort_by_date" && task["status"] == "open" ||
-    task["status"] == "processing"
+    task["type"] == "sort_by_date" && (task["status"] == "open" ||
+      task["status"] == "processing")
   );
 }
 
@@ -203,8 +203,9 @@ export function runs_in_archive(run_list) {
 export function runs_can_be_archived(cookies, run_list, tasks) {
   let named_open_tasks = runs_to_names(pending_archivals(tasks));
   let named_archived = runs_to_names(runs_in_archive(run_list));
-  let named_deletion_warnings_sent =
-    runs_to_names(runs_where_deletion_warnings_have_been_sent(run_list));
+  let named_deletion_warnings_sent = runs_to_names(
+    runs_where_deletion_warnings_have_been_sent(run_list),
+  );
 
   let runs = runs_in_working_set(run_list);
   //filter runs to only those that are not in the process of being archived
@@ -238,8 +239,9 @@ export function runs_can_be_deleted(cookies, run_list, tasks) {
   let named_open_deletions = runs_to_names(pending_deletions(tasks));
   let named_open_archivals = runs_to_names(pending_archivals(tasks));
   let named_archived = runs_to_names(runs_in_archive(run_list));
-  let named_deletion_warnings_sent =
-    runs_to_names(runs_where_deletion_warnings_have_been_sent(run_list));
+  let named_deletion_warnings_sent = runs_to_names(
+    runs_where_deletion_warnings_have_been_sent(run_list),
+  );
 
   let runs = runs_in_working_set(run_list);
   // filter runs to only those that are not in the process of being deleted
