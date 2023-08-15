@@ -323,7 +323,7 @@ def send_email(receivers, template_name, template_data):
 def provide_download_link(task):
     logger.debug("providing download link")
     to_send = task["to_send"]
-    if len(to_send) == 0:
+    if len(to_send) == 1:
         name = to_send[0].split("___")[0]
     else:
         name = "multiple_sequencing_runs"
@@ -499,6 +499,7 @@ def load_sample_sheet(dir):
 
 
 def discover_runs():
+    logger.info("Discovirg runs")
     ever = set()
     current = set()
     current_alignments = set()
