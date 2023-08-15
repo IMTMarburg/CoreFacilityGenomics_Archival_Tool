@@ -258,7 +258,7 @@ def find_run(run, include_archived=False):
                 and not (rta_complete.parent / "CompletedJobInfo.xml").exists()
             ):
                 return rta_complete.parent
-    raise ValueError("Not found")
+    raise ValueError("Not found", run)
 
 
 def find_run_alignment(run, alignment):
