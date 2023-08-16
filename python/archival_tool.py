@@ -19,19 +19,19 @@ from pathlib import Path
 import os
 from loguru import logger
 
-download_dir = Path(os.environ["DOWNLOAD_DIR"])
-working_dir = Path(os.environ["WORKING_DIR"])
-deleted_dir = Path(os.environ["DELETE_DIR"])
-archived_dir = Path(os.environ["ARCHIVE_DIR"])
-data_dir = Path(os.environ["DATA_DIR"])
+download_dir = Path(os.environ["DOWNLOAD_DIR"]).absolute()
+working_dir = Path(os.environ["WORKING_DIR"]).absolute()
+deleted_dir = Path(os.environ["DELETE_DIR"]).absolute()
+archived_dir = Path(os.environ["ARCHIVE_DIR"]).absolute()
+data_dir = Path(os.environ["DATA_DIR"]).absolute()
 event_dir = data_dir / "events"
 task_dir = data_dir / "tasks"
-secret_file = Path(os.environ["SECRETS_FILE"])
+secret_file = Path(os.environ["SECRETS_FILE"]).absolute()
 do_send_emails = os.environ.get("DO_SEND_EMAILS", "") == "true"
 
-default_templates = toml.load(open(Path(os.environ["TEMPLATES_PATH"])))
+default_templates = toml.load(open(Path(os.environ["TEMPLATES_PATH"]).absolute()))
 
-times = toml.load(open(Path(os.environ["TIMES_PATH"])))
+times = toml.load(open(Path(os.environ["TIMES_PATH"]).absolute()))
 with open(secret_file) as f:
     secrets = json.load(f)
 
