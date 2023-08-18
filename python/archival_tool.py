@@ -1,3 +1,4 @@
+from ctypes import alignment
 import shutil
 import dateutil.relativedelta
 import unittest
@@ -243,31 +244,136 @@ def decrypt_and_untar(encrypted_file, output_folder, key):
         raise
 
 
+class CachedRunSearcher:
+    def __init__(self):
+        self.cache_path = data_dir / "run_cache.json"
+        self.folders_to_remember = [".", "NextSeq", "NovaSeq"]
+        self.load_cache()
+
+    def load_cache(self):
+        redo = not self.cache_path.exists()
+        if redo:
+            self.remembered_folders = {}
+            self.archived_runs = {}
+            self.runs = {}
+            self.alignments = {}
+
+        if not redo:
+            logger.debug("Run Cache file existed")
+            self._load_from_cache_file()
+            if not self._check_cache():
+                logger.info("Rebuilding cache because of run deletion/move")
+                redo = True
+            else:  # cache was ok - new folders maybe?
+                for folder in self.folders_to_remember:
+                    if Path(folder).exists():
+                        if self.remembered_folders.get(
+                            folder, set()
+                        ) != self.list_dirs_in_folder(folder):
+                            redo = True
+                            logger.info(
+                                f"Rebuilding cache because of new folders in watched folder {folder}"
+                            )
+                            break
+        if redo:
+            self._build_cache()
+
+    def _load_from_cache_file(self):
+        data = json.loads(self.cache_path.read_text())
+        self.remembered_folders = data["remembered_folders"]
+        self.runs = data["runs"]
+        self.archived_runs = data["archived_runs"]
+        self.alignments = data["alignments"]
+
+    def _check_cache(self):
+        for k in "runs", "archived_runs", "alignments":
+            d = getattr(self, k)
+            for name, str_path in d.items():
+                path = Path(str_path)
+                if not path.exists():
+                    logger.info(f"Missing {k} {name} in path {path}- rebuild cache")
+                    return False
+        return True
+
+    def list_dirs_in_folder(self, folder):
+        path = working_dir / folder
+        return sorted([x.name for x in path.iterdir() if x.is_dir()])
+
+    def custom_search(self, path=".", depth=0):
+        path = Path(path)
+
+        # Base case: If the depth is more than 2 and the directory name is not like its parent, return
+        if depth > 2 and (path.parent.name != path.name):
+            return
+        # print("ex", path)
+
+        # Search for 'RTA_complete.txt' within the current path
+
+        # If current path is a directory
+        if path.is_dir():
+            for child in path.iterdir():
+                if child.name in (
+                    "RTAComplete.txt",
+                    "RTAComplete.txt.sha256",
+                    "Fastq",
+                ):
+                    yield child
+                # If child directory has the same name as its parent and we're at depth 2, reset depth
+                if child.is_dir():
+                    if depth == 2 and child.name == path.name:
+                        yield from self.custom_search(child, depth=0)
+                    else:
+                        yield from self.custom_search(child, depth=depth + 1)
+
+    def find_runs(self):
+        runs = {}
+        alignments = {}
+        archived_runs = {}
+        for path in self.custom_search(working_dir):
+            if path.name == "RTAComplete.txt.sha256":
+                archived_runs[path.parent.name] = str(path.parent)
+            elif path.name == "RTAComplete.txt":
+                runs[path.parent.name] = str(path.parent)
+            elif path.name == "Fastq":
+                if any((x.name.endswith(".fastq.gz") for x in path.iterdir())):
+                    if path.parent.parent.name.startswith("Alignment"):
+                        run = path.parent.parent.parent.name
+                        alignment_name = path.parent.parent.name
+                        alignment_path = path.parent.parent
+                        alignments[run + "/" + alignment_name] = str(alignment_path)
+
+            else:
+                raise ValueError("Unexpected filename")
+        return runs, archived_runs, alignments
+
+    def _build_cache(self):
+        runs, archived_runs, alignments = self.find_runs()
+        out_json = {
+            "runs": runs,
+            "archived_runs": archived_runs,
+            "alignments": alignments,
+            "remembered_folders": {
+                x: self.list_dirs_in_folder(x) for x in self.folders_to_remember if Path(x).exists()
+            },
+        }
+        self.cache_path.write_text(json.dumps(out_json, indent=4))
+        self.runs = runs
+        self.archived_runs = archived_runs
+        self.alignments = alignments
+
+
+runs = CachedRunSearcher()
+
+
 def find_run(run, include_archived=False):
-    candidate = working_dir / run
-    if candidate.exists():
-        return candidate
+    if include_archived:
+        return runs.archived_runs[run]
     else:
-        if include_archived:
-            query = "**/RTAComplete.txt.sha256"
-        else:
-            query = "**/RTAComplete.txt"
-        for rta_complete in working_dir.glob(query):
-            if (
-                rta_complete.parent.name == run
-                and not (rta_complete.parent / "CompletedJobInfo.xml").exists()
-            ):
-                return rta_complete.parent
-    raise ValueError("Not found", run)
+        return runs.runs[run]
 
 
 def find_run_alignment(run, alignment):
-    run_dir = find_run(run)
-    candidate = run_dir / run_dir.name / alignment
-    if candidate.exists():
-        return candidate
-    else:
-        raise ValueError("Alignment not found", run, alignment, candidate)
+    return runs.alignments[run + "/" + alignment]
 
 
 def apply_template(template_name, template_data):
@@ -499,7 +605,7 @@ def load_sample_sheet(dir):
 
 
 def discover_runs():
-    logger.info("Discovirg runs")
+    logger.info("Discovering runs")
     ever = set()
     current = set()
     current_alignments = set()
@@ -513,81 +619,64 @@ def discover_runs():
         elif t == "run_deleted_from_working_set":
             current.remove(event["run"])
             current_alignments = {
-                (run, alignment)
-                for run, alignment in current_alignments
+                (run_alignment)
+                for run_alignment in current_alignments
                 if run != event["run"]
             }
         elif t == "alignment_discovered":
             # alignments_ever.add((event["run"], event["alignment"]))
-            current_alignments.add((event["run"], event["alignment"]))
+            current_alignments.add((event["run"] + '/' + event["alignment"]))
         elif t == "alignment_removed":
-            current_alignments.remove((event["run"], event["alignment"]))
-
+            current_alignments.remove((event["run"] + '/' + event["alignment"]))
 
     # make sure we get the runs before the alignments
-    q = sorted(
-        working_dir.glob("**/RTAComplete.txt"), key=lambda x: (str(x).count("/"), x)
-    )
-    for rta_complete in q:
-        run = rta_complete.parent.name
-        run_finish_date = extract_illumina_date(rta_complete.read_text())
-        if not run_finish_date:
-            if not rta_complete.read_text():
-                run_finish_date = rta_complete.stat().st_mtime
-            else:
-                raise ValueError("could not extract date", rta_complete)
-
-        alignment_detection_file = rta_complete.parent / "CompletedJobInfo.xml"
-        run_info_file = rta_complete.parent / "RunInfo.xml"
-        if alignment_detection_file.exists() and not run_info_file.exists():
-            if not run in current:
-                # we exploit that it's parents before children in globbing with **
-                logger.info(f"Current: {current}, run: {run}")
-                raise ValueError("run had alignment, but is not in current?!)")
-            for possibly_alignment_dir in rta_complete.parent.glob("*"):
-                if (
-                    possibly_alignment_dir.is_dir()
-                    and possibly_alignment_dir.name.startswith("Alignment_")
-                ):
-                    al = (run, possibly_alignment_dir.name)
-                    alignments_seen.add(al)
-                    if al not in current_alignments:
-                        # I'm going to assume that it's *done*
-                        # at this poin, since we had CompletedJobInfo.xml...
-                        for filename in possibly_alignment_dir.glob("**/*.fastq.gz"):
-                            store_hash(filename)
-                        current_alignments.add(al)
-                        add_event(
-                            {
-                                "type": "alignment_discovered",
-                                "alignment": possibly_alignment_dir.name,
-                                "run": str(run),
-                                "sample_sheet": load_sample_sheet(rta_complete.parent),
-                            }
-                        )
+    for run, str_path in runs.runs.items():
+        if not run in ever:
+            path = Path(str_path)
+            rta_complete = path / "RTAComplete.txt"
+            run_finish_date = extract_illumina_date(rta_complete.read_text())
+            add_event(
+                {
+                    "type": "run_discovered",
+                    "run": str(run),
+                    "run_finish_date": run_finish_date,
+                    "sample_sheet": load_sample_sheet(rta_complete.parent),
+                }
+            )
+            current.add(str(run))
+            ever.add(str(run))
+        elif run not in current:
+            current.add(str(run))
+            add_event({"type": "run_restored_to_working_set", "run": str(run)})
         else:
-            # it is a run
+            pass # we know about this run.
 
-            if run not in ever:
-                add_event(
-                    {
-                        "type": "run_discovered",
-                        "run": str(run),
-                        "run_finish_date": run_finish_date,
-                        "sample_sheet": load_sample_sheet(rta_complete.parent),
-                    }
-                )
-                current.add(str(run))
-                ever.add(str(run))
-            elif run not in current:
-                current.add(str(run))
-                add_event({"type": "run_restored_to_working_set", "run": str(run)})
+    for run_alignment, str_path in runs.alignments.items():
+        alignments_seen.add(run_alignment)
+        if run_alignment not in current_alignments:
+            alignment_dir = Path(str_path)
+            # I'm going to assume that it's *done*
+            # at this poin, since we had CompletedJobInfo.xml...
+            for filename in possibly_alignment_dir.glob("**/*.fastq.gz"):
+                store_hash(filename)
+            current_alignments.add(run_alignment)
+            add_event(
+                {
+                    "type": "alignment_discovered",
+                    "alignment": run_alignment.split("/")[1],
+                    "run": run_alignment.split("/")[0],
+                    "sample_sheet": load_sample_sheet(alignment_dir),
+                }
+            )
+        else:
+            pass # we know that alignment
+
     for al in current_alignments.difference(alignments_seen):
         add_event(
             {
                 "type": "alignment_removed",
-                "run": str(al[0]),
-                "alignment": str(al[1]),
+                "run": al.split("/")[0],
+                "alignment": al.split("/")[1],
             }
         )
 
@@ -809,7 +898,7 @@ def send_annotation_email(task):
     if archive_size_bytes is not None:
         add_event(
             {
-                'type': "archive_size_estimated",
+                "type": "archive_size_estimated",
                 "run": run,
                 "archive_size": archive_size_bytes,
             },
@@ -880,16 +969,16 @@ def send_archive_deletion_warnings():
     warn_if_deleted_before_this_date = add_time_interval(
         NOW, "archive_deletion_warning"
     )
-    archived = {
-        x['run']
-        for x in events
-        if x["type"] == "run_archived"
-    }
+    archived = {x["run"] for x in events if x["type"] == "run_archived"}
 
     to_warn = []
     for event in events:
         if event["type"] == "run_annotated":
-            if event["run_finished"] and event["do_archive"] and event["run"] in archived:
+            if (
+                event["run_finished"]
+                and event["do_archive"]
+                and event["run"] in archived
+            ):
                 deletion_date_time = datetime.datetime.fromtimestamp(
                     event["archive_deletion_date"]
                 )
