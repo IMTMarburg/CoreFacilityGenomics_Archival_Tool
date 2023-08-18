@@ -84,6 +84,12 @@
   The system considers pending tasks when deciding what you can do, so you can't
   request a restore for something schedulded to be deleted etc.
 </p>
+
+<p>New runs are detected by 'RTAComplete.txt' presence (must contain a date!).
+That file probably needs to be placed by hand for the NovaSeq runs.
+</p>
+
+
 </Toggler>
 <hr />
 <h2>Todos</h2>
