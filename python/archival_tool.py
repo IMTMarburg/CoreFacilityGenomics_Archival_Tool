@@ -182,9 +182,9 @@ def tar_and_encrypt(input_folder, output_file):
     # print('public key is', repr(public_key))
     tar_cmd = [
         "tar",
-        "--exclude",
+        #"--exclude",
         # "Data",
-        "--exclude={*.fastq.gz}",
+        "--exclude=*.fastq.gz",
         "--use-compress-program",
         "zstd",
         # "zstd -19",
