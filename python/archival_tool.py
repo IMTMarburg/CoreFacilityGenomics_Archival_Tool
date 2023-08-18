@@ -657,7 +657,7 @@ def discover_runs():
             alignment_dir = Path(str_path)
             # I'm going to assume that it's *done*
             # at this poin, since we had CompletedJobInfo.xml...
-            for filename in possibly_alignment_dir.glob("**/*.fastq.gz"):
+            for filename in alignment_dir.glob("**/*.fastq.gz"):
                 store_hash(filename)
             current_alignments.add(run_alignment)
             add_event(
