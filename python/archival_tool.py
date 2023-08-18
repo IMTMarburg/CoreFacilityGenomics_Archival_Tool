@@ -367,13 +367,13 @@ runs = CachedRunSearcher()
 
 def find_run(run, include_archived=False):
     if include_archived:
-        return runs.archived_runs[run]
+        return Path(runs.archived_runs[run])
     else:
-        return runs.runs[run]
+        return Path(runs.runs[run])
 
 
 def find_run_alignment(run, alignment):
-    return runs.alignments[run + "/" + alignment]
+    return Path(runs.alignments[run + "/" + alignment])
 
 
 def apply_template(template_name, template_data):
