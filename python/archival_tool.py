@@ -736,6 +736,8 @@ def format_number(number):
 
 
 def format_date(dt):
+    if dt is None:
+        return 'None'
     return dt.strftime("%Y-%m-%d")
 
 
@@ -888,7 +890,7 @@ def send_annotation_email(task):
             ),
             "DAYS": days_until(datetime.datetime.fromtimestamp(info["deletion_date"])),
             "DO_ARCHIVE": bool(info["do_archive"]),
-            "ARCHIVE_UNTIL": info.get("archive_deletion_date", None),
+            "ARCHIVE_UNTIL": format_date(info.get("archive_deletion_date", None)),
             "ARCHIVE_SIZE": archive_size,
             "COMMENT": info["comment"],
             "DOWNLOAD_BEING_PREPARED": info["send_download_link"],
@@ -945,7 +947,7 @@ def send_deletion_warnings():
             "DELETION_DATE": format_date(target["deletion_date_time"]),
             "DAYS": days_until(target["deletion_date_time"]),
             "DO_ARCHIVE": target["do_archive"],
-            "ARCHIVE_UNTIL": archive_until_date,
+            "ARCHIVE_UNTIL": format_date(archive_until_datei,
             "RECEIVERS": target["receivers"],
         }
         send_email(target["receivers"], "run_about_to_be_deleted", info)
