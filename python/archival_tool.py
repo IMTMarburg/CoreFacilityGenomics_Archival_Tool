@@ -155,7 +155,7 @@ def tar_output_folders(input_folders, output_file):
     cmd = [
         "tar",
         "-I",
-        "zstd",
+        "gz",
         "-cf",
         str(output_file.absolute()),
     ]
@@ -184,13 +184,14 @@ def tar_and_encrypt(input_folder, output_file):
         "tar",
         #"--exclude",
         # "Data",
-        "--exclude=*.fastq.gz",
         "--use-compress-program",
-        "zstd",
+        "gz",
         # "zstd -19",
         "-c",
         str(input_folder.name),
     ]
+    if Path(input_folder / "Data").exists():
+        tar_cmd.append("--exclude=*.fastq.gz",)
     rage_cmd = ["rage", "-e", "-", "-o", str(output_file.absolute()), "-r", public_key]
     process_tar = subprocess.Popen(
         tar_cmd, cwd=input_folder.parent, stdout=subprocess.PIPE
@@ -226,7 +227,7 @@ def decrypt_and_untar(encrypted_file, output_folder, key):
                 "-o",
                 "-",
             ]
-            tar_cmd = ["tar", "--zstd", "-x"]
+            tar_cmd = ["tar", "--gz", "-x"]
             logger.debug(f"rage cmd: {rage_cmd}")
             logger.debug(f"tar cmd: {tar_cmd}")
             process_rage = subprocess.Popen(rage_cmd, stdout=subprocess.PIPE)
@@ -436,7 +437,7 @@ def provide_download_link(task):
     name = safe_name(name)
 
     output_name = (
-        time.strftime("%Y-%m-%d_%H-%M-%S_") + name + "_" + random_text(5) + ".tar.zstd"
+        time.strftime("%Y-%m-%d_%H-%M-%S_") + name + "_" + random_text(5) + ".tar.gz"
     )
     last_provided_download = find_last_provided_download(task["to_send"])
     try:
@@ -767,7 +768,7 @@ def add_time_interval(start_datetime, interval_name):
 def archive_run(task):
     source = find_run(task["run"])
     source_folder = str(source.relative_to(working_dir).parent)
-    target = archived_dir / (safe_name(task["run"]) + ".tar.zstd.age")
+    target = archived_dir / (safe_name(task["run"]) + ".tar.gz.age")
     key, size = tar_and_encrypt(source, target)
     end_date = add_time_interval(NOW, "archive")
     end_timestamp = int(time.mktime(end_date.timetuple()))
