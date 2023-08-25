@@ -5,6 +5,7 @@ import toml from "toml";
 import fs from "fs";
 
 export async function load({ params }) {
+  console.log("Templates path", process.env.TEMPLATES_PATH);
   let toml_str = fs.readFileSync(process.env.TEMPLATES_PATH).toString();
   let templates = toml.parse(toml_str);
   let template_name = params.template;

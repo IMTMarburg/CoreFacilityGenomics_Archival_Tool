@@ -155,7 +155,7 @@ def tar_output_folders(input_folders, output_file):
     cmd = [
         "tar",
         "-I",
-        "zstd",
+        "gz",
         "-cf",
         str(output_file.absolute()),
     ]
@@ -184,13 +184,14 @@ def tar_and_encrypt(input_folder, output_file):
         "tar",
         #"--exclude",
         # "Data",
-        "--exclude=*.fastq.gz",
         "--use-compress-program",
-        "zstd",
+        "gz",
         # "zstd -19",
         "-c",
         str(input_folder.name),
     ]
+    if Path(input_folder / "Data").exists():
+        tar_cmd.append("--exclude=*.fastq.gz",)
     rage_cmd = ["rage", "-e", "-", "-o", str(output_file.absolute()), "-r", public_key]
     process_tar = subprocess.Popen(
         tar_cmd, cwd=input_folder.parent, stdout=subprocess.PIPE
@@ -226,7 +227,7 @@ def decrypt_and_untar(encrypted_file, output_folder, key):
                 "-o",
                 "-",
             ]
-            tar_cmd = ["tar", "--zstd", "-x"]
+            tar_cmd = ["tar", "--gz", "-x"]
             logger.debug(f"rage cmd: {rage_cmd}")
             logger.debug(f"tar cmd: {tar_cmd}")
             process_rage = subprocess.Popen(rage_cmd, stdout=subprocess.PIPE)
@@ -436,7 +437,7 @@ def provide_download_link(task):
     name = safe_name(name)
 
     output_name = (
-        time.strftime("%Y-%m-%d_%H-%M-%S_") + name + "_" + random_text(5) + ".tar.zstd"
+        time.strftime("%Y-%m-%d_%H-%M-%S_") + name + "_" + random_text(5) + ".tar.gz"
     )
     last_provided_download = find_last_provided_download(task["to_send"])
     try:
@@ -736,6 +737,8 @@ def format_number(number):
 
 
 def format_date(dt):
+    if dt is None:
+        return 'None'
     return dt.strftime("%Y-%m-%d")
 
 
@@ -765,7 +768,7 @@ def add_time_interval(start_datetime, interval_name):
 def archive_run(task):
     source = find_run(task["run"])
     source_folder = str(source.relative_to(working_dir).parent)
-    target = archived_dir / (safe_name(task["run"]) + ".tar.zstd.age")
+    target = archived_dir / (safe_name(task["run"]) + ".tar.gz.age")
     key, size = tar_and_encrypt(source, target)
     end_date = add_time_interval(NOW, "archive")
     end_timestamp = int(time.mktime(end_date.timetuple()))
@@ -888,7 +891,7 @@ def send_annotation_email(task):
             ),
             "DAYS": days_until(datetime.datetime.fromtimestamp(info["deletion_date"])),
             "DO_ARCHIVE": bool(info["do_archive"]),
-            "ARCHIVE_UNTIL": info.get("archive_deletion_date", None),
+            "ARCHIVE_UNTIL": format_date(info.get("archive_deletion_date", None)),
             "ARCHIVE_SIZE": archive_size,
             "COMMENT": info["comment"],
             "DOWNLOAD_BEING_PREPARED": info["send_download_link"],
@@ -945,7 +948,7 @@ def send_deletion_warnings():
             "DELETION_DATE": format_date(target["deletion_date_time"]),
             "DAYS": days_until(target["deletion_date_time"]),
             "DO_ARCHIVE": target["do_archive"],
-            "ARCHIVE_UNTIL": archive_until_date,
+            "ARCHIVE_UNTIL": format_date(archive_until_datei,
             "RECEIVERS": target["receivers"],
         }
         send_email(target["receivers"], "run_about_to_be_deleted", info)
