@@ -1,0 +1,68 @@
+= Datenschutzkonzept Core Facility Genomics
+
+
+Die Datenverabeitung in der Core Facility Genomics (CFG) 
+teilt sich in zwei Bereiche, akute Datenverabeitung und Archivierung.
+
+
+== Akute Datenverabeitung
+
+Die akute Datenverabeitung beginnt mit dem Start 
+einer Hochdurchsatzsequenzierung (Sequenzierlauf) und endet mit dem Ablauf
+der Downloadfrist durch den Nutzer der Core Facility.
+Sie umfasst die Qualitätskontrolle der Rohdaten, ohne dass
+diese inhaltlich betrachtet werden, und die Bereitstellung
+zum Download. Der Download durch den Nutzer erfolgt gesichert
+über eine TLS-Transportversicherung via HTTPs, und ist
+dadurch abgesichert, dass er Downloadlink nicht vorhersehbar ist
+und nur dem zum Download berechtigten Nutzer zugestellt wird.
+
+Während dieser Phase liege die Daten auf verschlüsselten ZFS-Laufwerken,
+sind aber notwendigerweise für die Verabeitung sichtbar.
+
+
+== Archivierung
+
+Die Corefacility ist verpflichtet, die generierten Rohdaten
+10 Jahre lang aufzubewahren. Dazu werden die Sequenzierläufe
+nach Abschluss dar akuten Datenverabeitung in ein verschlüsseltes
+Single-File Tar-Archiv überführt.
+
+Zur Verschlüsselung kommt hierbei rage zum Einsatz, eine Rust-Implementation
+des age-Standards, welcher ChaCha20-Poly1305 mit einem symetrischen 128-bit
+Schlüssel verwendet. Dieser 128bit-Schlüssel wird mit dem öffentlichen Teil
+eines asymmetrischen Schlüsselpaars verschlüsselt, und im "Header" des
+(Sequenzierlauf-) Chiffrats abgelegt. Dabei wird pro Sequenzierlauf eine
+eigenes assymetrische Schlüsselpaar erzeugt.
+
+Das Schlüsselpaar wird separat mit rage verschlüsselt und zwar mit den asymmetrischen
+Schlüsseln der zugriffsberechtigten Mitarbeiter, welche durch Passphrasen abgesichert sind 
+(=> ergibt Schlüssel-Chiffrat).
+
+Das Sequenzierlauf-Chiffrat wird dann auf einen externen Datenspeicher innerhalb
+der Universität (momentan: "Marburg Storage Cluster") kopiert, und die Kopie 
+in der Core Facility gelöscht.
+
+Der Schlüssel-Chiffrat wird innerhalb der Core Facility, unter Berücksichtigung
+der üblichen Backup-Strategien aufbewahrt.
+
+=== Widerherstellung
+
+Die Widerherstellung der Daten erfolgt in zwei Schritten:
+
+ - Schlüssel-Chiffrat wird mit dem Schlüssel (und Passphrase) eines Mitarbeiter entschlüsselt
+ - Sequenzierlauf-Chiffrat wird mit dem Sequenzierlauf-spezifischen Schlüssel entschlüsselt
+
+=== Wegfall / Hinzufügen eines Schlüssels
+
+Bei Veränderungen in der Gruppe der Zugriffsberechtigten oder bei Verlust
+eines Schlüssels, muss jeder der Schlüssel-Chiffrat aller Sequenzierläufe 
+neu verschlüsselt werden.
+
+Hierzu ist eine Entschlüsselung durch einen Zugriffsberechtigten notwendig. Der
+grosse Vorteil des zweistufigen Verfahrens ist, dass kein Transfer ->
+Entschlüsselung -> Verschlüsselung -> Transfer notwendig der Sequenzierläufe
+notwendig ist, und somit zum ein schnell auf Schlüssel- (oder Zugriffs-)
+-Verlust reagieren kann, und zum anderen die notwendige Rechenzeit um
+einen Faktor von mehreren Millionen sinkt.
+
