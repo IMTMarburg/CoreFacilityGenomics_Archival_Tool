@@ -948,7 +948,7 @@ def send_deletion_warnings():
             "DELETION_DATE": format_date(target["deletion_date_time"]),
             "DAYS": days_until(target["deletion_date_time"]),
             "DO_ARCHIVE": target["do_archive"],
-            "ARCHIVE_UNTIL": format_date(archive_until_datei,
+            "ARCHIVE_UNTIL": format_date(archive_until_date),
             "RECEIVERS": target["receivers"],
         }
         send_email(target["receivers"], "run_about_to_be_deleted", info)
