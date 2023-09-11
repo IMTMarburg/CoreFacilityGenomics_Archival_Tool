@@ -13,18 +13,22 @@ export async function load({ params }) {
   let run = runs.filter((run) => {
     return run.name == params.run;
   })[0];
+  let error = false;
+
   if (run == undefined) {
-    throw "Run not found";
+    error = "Run not found";
   }
   if (run["in_archive"]) {
-    throw "Run is in archive";
+    error = "Run is already in archive";
   }
   if (!run["in_working_set"]) {
-    throw "Run is not in working set";
+    error = "Run is not in working set";
   }
   let times = load_times();
+
   return {
     run: run,
+	error: error,
     times: times,
   };
 }

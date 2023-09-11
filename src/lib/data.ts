@@ -1,6 +1,6 @@
 import process from "process";
 import fs from "fs";
-import { get_now, runs_to_names } from "$lib/util";
+import { get_now, runs_to_names, last_annotation } from "$lib/util";
 
 var event_cache = {};
 //if this ever get's too slow
@@ -158,7 +158,7 @@ export function pending_deletions(tasks) {
 export function pending_restores(tasks) {
   return tasks.filter((task) =>
     task["type"] == "restore_run" && (task["status"] == "open" ||
-    task["status"] == "processing")
+      task["status"] == "processing")
   );
 }
 
@@ -439,19 +439,21 @@ export async function add_event(type: string, data: object, user: string) {
   add_json_log("events", data);
 }
 
-export async function run_is_still_annotatable(run) {
-  if (!run["run_deleted_from_working_set"]) {
+export function run_is_still_annotatable(run) {
+  if (run["name"] == "221221_NB552003_0200_AHCMC5BGXN") {
+  }
+  if (run["run_deleted_from_working_set"]) {
     return false;
   }
   if (run["in_archive"]) {
     return false;
   }
-  if (
+  /* if (
     (run["annotations"].length > 0) &&
     (last_annotation(run, "run_finished") == true)
   ) {
     return false;
-  }
+  } */
 
   return true;
 }

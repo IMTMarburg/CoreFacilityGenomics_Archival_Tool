@@ -25,8 +25,9 @@ export async function load() {
 
   let prev_annotated = run_list.filter((run) => {
     return run_is_still_annotatable(run) &&
-      run.annotations.length > 0;
+      (run.annotations.length > 0);
   });
+  console.log(prev_annotated.map((x) => (x['name'])));
 
   return {
     unannotated_runs: unannotated_runs,

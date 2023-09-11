@@ -35,11 +35,11 @@
     if (
       (data.run["annotations"].length > 0
         ? data.run["annotations"][data.run["annotations"].length - 1][
-            "archive_date"
+            "archive_deletion_date"
           ]
         : null) != null
     ) {
-      run_finished = "archived";
+      run_finished = "archive";
     } else if (
       (data.run["annotations"].length > 0
         ? data.run["annotations"][data.run["annotations"].length - 1][
@@ -100,7 +100,9 @@
 
 <h1>Annotate run - {data.run.name}</h1>
 
-{#if form?.success}
+{#if data.error}
+  An error occured: {data.error}
+{:else if form?.success}
   Your annotation was saved. <br />
   {#if form.run_finished}
     The background process will send emails accordingly.
@@ -159,7 +161,7 @@
     />
 
     <label for="run_finished" style="display:inline">Finished?</label>
-    <select id="run_finished" bind:value={run_finished}>
+    <select id="run_finished" name="run_finished" bind:value={run_finished}>
       {#if data.run.annotations.length == 0 || data.run.annotations[data.run.annotations.length - 1]["run_finished"] === "no"}
         <option value="no" default>Unfinished (finish annotation later)</option>
       {/if}
