@@ -10,7 +10,9 @@ import { add_event, add_task, load_runs } from "$lib/data";
 
 export async function load({ params }) {
   let runs = await load_runs();
-  let run = runs.filter((run) => {return run.name == params.run;})[0];
+  let run = runs.filter((run) => {
+    return run.name == params.run;
+  })[0];
   if (run == undefined) {
     throw "Run not found";
   }
@@ -20,9 +22,10 @@ export async function load({ params }) {
   if (!run["in_working_set"]) {
     throw "Run is not in working set";
   }
+  let times = load_times();
   return {
     run: run,
-    times: load_times(),
+    times: times,
   };
 }
 
@@ -38,15 +41,17 @@ export const actions = {
             "run_finished"
           ] === true);
       let run_finished = is_updated ||
-        (form_data.get("run_finished") == "true");
+        (form_data.get("run_finished") != "no");
       let send_download_link = form_data.get("send_download_link", false);
       let out = {
         "run": data["run"]["name"],
         "receivers": receivers,
         "run_finished": run_finished,
         "is_update": is_updated,
-        "deletion_date": isodate_to_timestamp(form_data.get("deletion_date")),
-        "do_archive": form_data.get("archive", false) == "true",
+        "deletion_date": isodate_to_timestamp(
+          form_data.get("deletion_date", false),
+        ),
+        "do_archive": form_data.get("run_finished") == "archive",
         "archive_deletion_date": isodate_to_timestamp(
           form_data.get("archive_date", false),
         ),
@@ -56,9 +61,14 @@ export const actions = {
       };
 
       await add_event("run_annotated", out, locals.user);
-	  if (run_finished) {
-		  await add_task("send_annotation_email", out, locals.user);
-	  }
+      if (run_finished) {
+        if (
+          (form_data.get("run_finished") == "archive") ||
+          (form_data.get("run_finished") == "delete")
+        ) {
+          await add_task("send_annotation_email", out, locals.user);
+        }
+      }
       if (send_download_link) {
         let invalidation_date = add_time_interval(
           new Date(),
@@ -72,7 +82,6 @@ export const actions = {
           "comment": "",
         }, locals.user);
       }
-
 
       return { success: true };
     } catch (error) {

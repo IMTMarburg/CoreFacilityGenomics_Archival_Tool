@@ -86,7 +86,7 @@
           shellHook = ''
             export PATH=$PATH:$(pwd)/node_modules/.bin/
             export TEMPLATES_PATH=$(pwd)/static/mail_templates.toml
-            export TIMES_PATH=$(pwd)/static/mail_templates.toml
+            export TIMES_PATH=$(pwd)/static/times.toml
           '';
         };
       }

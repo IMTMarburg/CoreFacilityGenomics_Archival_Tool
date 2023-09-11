@@ -155,7 +155,7 @@ def tar_output_folders(input_folders, output_file):
     cmd = [
         "tar",
         "-I",
-        "gz",
+        "gzip",
         "-cf",
         str(output_file.absolute()),
     ]
@@ -182,7 +182,7 @@ def tar_and_encrypt(input_folder, output_file):
     # print('public key is', repr(public_key))
     tar_cmd = [
         "tar",
-        #"--exclude",
+        # "--exclude",
         # "Data",
         "--use-compress-program",
         "gz",
@@ -191,7 +191,9 @@ def tar_and_encrypt(input_folder, output_file):
         str(input_folder.name),
     ]
     if Path(input_folder / "Data").exists():
-        tar_cmd.append("--exclude=*.fastq.gz",)
+        tar_cmd.append(
+            "--exclude=*.fastq.gz",
+        )
     rage_cmd = ["rage", "-e", "-", "-o", str(output_file.absolute()), "-r", public_key]
     process_tar = subprocess.Popen(
         tar_cmd, cwd=input_folder.parent, stdout=subprocess.PIPE
@@ -354,7 +356,9 @@ class CachedRunSearcher:
             "archived_runs": archived_runs,
             "alignments": alignments,
             "remembered_folders": {
-                x: self.list_dirs_in_folder(x) for x in self.folders_to_remember if Path(x).exists()
+                x: self.list_dirs_in_folder(x)
+                for x in self.folders_to_remember
+                if Path(x).exists()
             },
         }
         self.cache_path.write_text(json.dumps(out_json, indent=4))
@@ -399,18 +403,18 @@ def apply_template(template_name, template_data):
 
 
 def send_email(receivers, template_name, template_data):
-    sender = secrets["mail"]["sender"]
-    username = secrets["mail"]["username"]
-    password = secrets["mail"]["password"]
-    smtp_server = secrets["mail"]["host"]
-    smtp_port = secrets["mail"]["port"]
     subject, message = apply_template(template_name, template_data)
-
     msg = MIMEText(message)
     msg["Subject"] = subject
-    msg["From"] = sender
     msg["To"] = ",".join(receivers)
     if do_send_emails:
+        sender = secrets["mail"]["sender"]
+        msg["From"] = sender
+        username = secrets["mail"]["username"]
+        password = secrets["mail"]["password"]
+        smtp_server = secrets["mail"]["host"]
+        smtp_port = secrets["mail"]["port"]
+
         s = smtplib.SMTP(smtp_server, smtp_port)
         s.starttls()
         s.login(username, password)
@@ -626,9 +630,9 @@ def discover_runs():
             }
         elif t == "alignment_discovered":
             # alignments_ever.add((event["run"], event["alignment"]))
-            current_alignments.add((event["run"] + '/' + event["alignment"]))
+            current_alignments.add((event["run"] + "/" + event["alignment"]))
         elif t == "alignment_removed":
-            current_alignments.remove((event["run"] + '/' + event["alignment"]))
+            current_alignments.remove((event["run"] + "/" + event["alignment"]))
 
     # make sure we get the runs before the alignments
     for run, str_path in runs.runs.items():
@@ -650,7 +654,7 @@ def discover_runs():
             current.add(str(run))
             add_event({"type": "run_restored_to_working_set", "run": str(run)})
         else:
-            pass # we know about this run.
+            pass  # we know about this run.
 
     for run_alignment, str_path in runs.alignments.items():
         alignments_seen.add(run_alignment)
@@ -670,7 +674,7 @@ def discover_runs():
                 }
             )
         else:
-            pass # we know that alignment
+            pass  # we know that alignment
 
     for al in current_alignments.difference(alignments_seen):
         add_event(
@@ -738,7 +742,7 @@ def format_number(number):
 
 def format_date(dt):
     if dt is None:
-        return 'None'
+        return "None"
     return dt.strftime("%Y-%m-%d")
 
 
@@ -871,6 +875,7 @@ def sort_by_date(task):
 
 
 def send_annotation_email(task):
+    # this is not set for runs that are set to 'keep'
     logger.debug("Sending annotation email")
     info = task
     run = task["run"]
@@ -922,6 +927,8 @@ def send_deletion_warnings():
     for event in events:
         if event["type"] == "run_annotated":
             if event["run_finished"]:
+                if event["deletion_date"] is None:  # set to 'keep'
+                    continue
                 deletion_date_time = datetime.datetime.fromtimestamp(
                     event["deletion_date"]
                 )

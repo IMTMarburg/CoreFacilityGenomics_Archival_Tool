@@ -207,6 +207,7 @@ export function check_emails(newline_seperarated_addreses: string): [string] {
 }
 
 export function load_times() {
+	console.log(process.env.TIMES_PATH);
   let toml_str = fs.readFileSync(process.env.TIMES_PATH).toString();
   let times = toml.parse(toml_str);
   return times;

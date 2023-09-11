@@ -21,12 +21,44 @@
     : false;
 
   let send_download_link = form == null || form.send_download_link;
-  let run_finished =
-    (data.run["annotations"].length > 0 &&
-      data.run["annotations"][data.run["annotations"].length - 1][
-        "run_finished"
-      ]) ||
-    (form != null && form.run_finished);
+  let prev_run_finished =
+    data.run["annotations"].length > 0 &&
+    data.run["annotations"][data.run["annotations"].length - 1]["run_finished"];
+  let run_finished = "no";
+  if (prev_run_finished === false) {
+    if (form != null) {
+      run_finished = form.run_finished;
+    } else {
+      run_finished = "no";
+    }
+  } else if (prev_run_finished === true) {
+    if (
+      (data.run["annotations"].length > 0
+        ? data.run["annotations"][data.run["annotations"].length - 1][
+            "archive_date"
+          ]
+        : null) != null
+    ) {
+      run_finished = "archived";
+    } else if (
+      (data.run["annotations"].length > 0
+        ? data.run["annotations"][data.run["annotations"].length - 1][
+            "deletion_date"
+          ]
+        : null) != null
+    ) {
+      run_finished = "delete";
+    } else {
+      run_finished = "keep";
+    }
+  } else {
+    // it was set previously
+    if (form != null) {
+      run_finished = form.run_finished;
+    } else {
+      run_finished = prev_run_finished;
+    }
+  }
 
   function escape_name(name: string) {
     //escape for use in html id
@@ -70,8 +102,8 @@
 
 {#if form?.success}
   Your annotation was saved. <br />
-  {#if form.run_finished }
-	  The background process will send emails accordingly.
+  {#if form.run_finished}
+    The background process will send emails accordingly.
   {/if}
   <br />
   <br />
@@ -126,86 +158,72 @@
       rows="3"
     />
 
-    {#if data.run.annotations.length > 0 && data.run.annotations[data.run.annotations.length - 1]["run_finished"] === true}
-      <label>Run already marked finished (can't be undone)</label>
-    {:else}
-      <label for="run_finished" style="display:inline"
-        >Mark run as finished (and send email)</label
-      >
+    <label for="run_finished" style="display:inline">Finished?</label>
+    <select id="run_finished" bind:value={run_finished}>
+      {#if data.run.annotations.length == 0 || data.run.annotations[data.run.annotations.length - 1]["run_finished"] === "no"}
+        <option value="no" default>Unfinished (finish annotation later)</option>
+      {/if}
+      <option value="delete">Yes, no archival (and send email)</option>
+      <option value="archive">Yes, do archive (and send email)</option>
+      <option value="keep">Yes, and keep around (no email)</option>
+    </select>
+    <br />
 
+    {#if run_finished == "delete"}
+      <label for="deletion_date">Deletion date</label>
       <input
-        type="checkbox"
-        name="run_finished"
-        id="run_finished"
-        value="true"
-        bind:checked={run_finished}
+        type="date"
+        name="deletion_date"
+        id="date"
+        value={form?.date ?? get_deletion_date()}
+        min={date_min(
+          get_deletion_date(),
+          iso_date(
+            add_time_interval(new Date(), "earliest_deletion", data.times)
+          )
+        )}
+        required
       />
       <br />
+    {:else if run_finished == "archive"}
+      <label for="deletion_date">Archive after date</label>
+      <input
+        type="date"
+        name="deletion_date"
+        id="date"
+        value={form?.date ?? get_deletion_date()}
+        min={date_min(
+          get_deletion_date(),
+          iso_date(
+            add_time_interval(new Date(), "earliest_deletion", data.times)
+          )
+        )}
+        required
+      />
+      <label for="archive_date">Archive until</label>
+      <input
+        type="date"
+        name="archive_date"
+        id="archive_date"
+        value={form?.archive_date ??
+          (data.run["annotations"].length > 0
+            ? data.run["annotations"][data.run["annotations"].length - 1][
+                "archive_date"
+              ]
+            : null) ??
+          iso_date(add_time_interval(new Date(), "archive", data.times))}
+        min={date_min(
+          iso_date(add_time_interval(new Date(), "archive", data.times)),
+          data.run["annotations"].length > 0
+            ? data.run["annotations"][data.run["annotations"].length - 1][
+                "archive_date"
+              ]
+            : null
+        )}
+        required
+      />
     {/if}
-
-    {#if run_finished}
-      <div>
-        <label for="archive" style="display:inline"> Archive: </label><input
-          type="checkbox"
-          name="archive"
-          id="archive"
-          value="true"
-          bind:checked={do_archive}
-        />
-      </div>
-      {#if do_archive}
-        <label for="deletion_date">Archive after date</label>
-        <input
-          type="date"
-          name="deletion_date"
-          id="date"
-          value={form?.date ??  get_deletion_date()}
-          min={date_min(
-			  get_deletion_date(),
-               iso_date(
-                  add_time_interval(new Date(), "earliest_deletion", data.times)
-                )
-          )}
-          required
-        />
-        <label for="archive_date">Archive until</label>
-        <input
-          type="date"
-          name="archive_date"
-          id="archive_date"
-          value={form?.archive_date ??
-            (data.run["annotations"].length > 0
-              ? data.run["annotations"][data.run["annotations"].length - 1][
-                  "archive_date"
-                ]
-              : null) ??
-            iso_date(add_time_interval(new Date(), "archive", data.times))}
-          min={date_min(
-				iso_date(add_time_interval(new Date(), "archive", data.times)),
-				data.run["annotations"].length > 0 ?
-				data.run["annotations"][data.run["annotations"].length - 1][ "archive_date"]
-				: null
-          )}
-          required
-        />
-      {:else}
-        <label for="deletion_date">Deletion date</label>
-        <input
-          type="date"
-          name="deletion_date"
-          id="date"
-          value={form?.date ?? get_deletion_date()}
-          min={date_min(
-            get_deletion_date(),
-            iso_date(
-              add_time_interval(new Date(), "earliest_deletion", data.times)
-            )
-          )}
-          required
-        />
-        <br />
-      {/if}
-
+    {#if run_finished != "no"}
       <label for="send_download_link" style="display:inline"
         >Also send download link (in seperate email)</label
       >
@@ -219,7 +237,7 @@
       <br />
     {/if}
 
-    {#if run_finished}
+    {#if run_finished != "no"}
       <input type="submit" value="Submit & send mail" />
     {:else}
       <input type="submit" value="Submit" />
