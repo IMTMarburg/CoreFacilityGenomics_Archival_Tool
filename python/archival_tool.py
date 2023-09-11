@@ -622,7 +622,7 @@ def discover_runs():
             current_alignments = {
                 (run_alignment)
                 for run_alignment in current_alignments
-                if run != event["run"]
+                if run_alignment[0] != event["run"]
             }
         elif t == "alignment_discovered":
             # alignments_ever.add((event["run"], event["alignment"]))
