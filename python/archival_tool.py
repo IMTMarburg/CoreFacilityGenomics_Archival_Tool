@@ -743,6 +743,8 @@ def format_number(number):
 def format_date(dt):
     if dt is None:
         return "None"
+    if isinstance(dt, int):
+        dt = datetime.datetime.fromtimestamp(dt)
     return dt.strftime("%Y-%m-%d")
 
 
