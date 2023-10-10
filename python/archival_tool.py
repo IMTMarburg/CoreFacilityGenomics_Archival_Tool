@@ -185,7 +185,7 @@ def tar_and_encrypt(input_folder, output_file):
         # "--exclude",
         # "Data",
         "--use-compress-program",
-        "gz",
+        "gzip",
         # "zstd -19",
         "-c",
         str(input_folder.name),
