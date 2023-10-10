@@ -191,7 +191,7 @@ def tar_and_encrypt(input_folder, output_file):
         str(input_folder.name),
     ]
     if Path(input_folder / "Data").exists():
-        tar_cmd.append(
+        tar_cmd.insert(1,
             "--exclude=*.fastq.gz",
         )
     rage_cmd = ["rage", "-e", "-", "-o", str(output_file.absolute()), "-r", public_key]
