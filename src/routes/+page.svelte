@@ -19,9 +19,9 @@
 <h2>Test mode</h2>
 <p>
   <b>
-    The system is in test mode.
+    The system is in Live mode.
     <br />
-    All datasets are 'fake/copies', Sourced from incoming/cfgat_test.
+    All datasets are real, Sourced from incoming/.
     <br />
     Emails are being sent.
     <br />
