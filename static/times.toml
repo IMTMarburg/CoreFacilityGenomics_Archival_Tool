@@ -1,6 +1,6 @@
 [archive]
-value = 3
-unit = 'days'
+value = 10
+unit = 'years'
 
 [deletion_delay]
 value = 15
