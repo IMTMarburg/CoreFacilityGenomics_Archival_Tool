@@ -16,7 +16,7 @@
 </script>
 
 <p>Welcome '{data.user}'.</p>
-<h2>Test mode</h2>
+<h2>Live mode</h2>
 <p>
   <b>
     The system is in Live mode.
