@@ -7,18 +7,18 @@ value = 15
 unit = 'minutes'
 
 [download_retention]
-value = 1
+value = 30
 unit = 'days'
 
 [earliest_deletion]
-value = 2 
+value = 30 
 unit = 'days'
 
 
 [deletion_warning]
-value = 1 
+value = 15 
 unit = 'days'
 
 [archive_deletion_warning]
-value = 1 
+value = 31 
 unit = 'days'
