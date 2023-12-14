@@ -347,6 +347,8 @@ class CachedRunSearcher:
 
             else:
                 raise ValueError("Unexpected filename")
+        print(runs)
+        aoeu
         return runs, archived_runs, alignments
 
     def _build_cache(self):
@@ -358,7 +360,7 @@ class CachedRunSearcher:
             "remembered_folders": {
                 x: self.list_dirs_in_folder(x)
                 for x in self.folders_to_remember
-                if Path(x).exists()
+                if (working_dir / x).exists()
             },
         }
         self.cache_path.write_text(json.dumps(out_json, indent=4))
