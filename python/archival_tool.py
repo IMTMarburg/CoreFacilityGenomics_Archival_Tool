@@ -260,6 +260,7 @@ class CachedRunSearcher:
             self.archived_runs = {}
             self.runs = {}
             self.alignments = {}
+            self.last_cache_redo_time = time.time()
 
         if not redo:
             logger.debug("Run Cache file existed")
@@ -267,9 +268,11 @@ class CachedRunSearcher:
             if not self._check_cache():
                 logger.info("Rebuilding cache because of run deletion/move")
                 redo = True
+            if time.time() - self.last_cache_redo_time > 2 * 60**2:
+                redo = True
             else:  # cache was ok - new folders maybe?
                 for folder in self.folders_to_remember:
-                    if Path(folder).exists():
+                    if Path(working_dir / folder).exists():
                         if self.remembered_folders.get(
                             folder, set()
                         ) != self.list_dirs_in_folder(folder):
@@ -287,6 +290,7 @@ class CachedRunSearcher:
         self.runs = data["runs"]
         self.archived_runs = data["archived_runs"]
         self.alignments = data["alignments"]
+        self.last_cache_redo_time = data.get('last_cache_redo_time', 0)
 
     def _check_cache(self):
         for k in "runs", "archived_runs", "alignments":
@@ -347,8 +351,6 @@ class CachedRunSearcher:
 
             else:
                 raise ValueError("Unexpected filename")
-        print(runs)
-        aoeu
         return runs, archived_runs, alignments
 
     def _build_cache(self):
@@ -362,6 +364,7 @@ class CachedRunSearcher:
                 for x in self.folders_to_remember
                 if (working_dir / x).exists()
             },
+            "last_cache_redo_time": time.time(),
         }
         self.cache_path.write_text(json.dumps(out_json, indent=4))
         self.runs = runs
