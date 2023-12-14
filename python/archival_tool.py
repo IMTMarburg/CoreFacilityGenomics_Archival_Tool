@@ -185,13 +185,14 @@ def tar_and_encrypt(input_folder, output_file):
         # "--exclude",
         # "Data",
         "--use-compress-program",
-        #"gzip",
+        # "gzip",
         "zstd",
         "-c",
         str(input_folder.name),
     ]
     if Path(input_folder / "Data").exists():
-        tar_cmd.insert(1,
+        tar_cmd.insert(
+            1,
             "--exclude=*.fastq.gz",
         )
     rage_cmd = ["rage", "-e", "-", "-o", str(output_file.absolute()), "-r", public_key]
@@ -290,7 +291,7 @@ class CachedRunSearcher:
         self.runs = data["runs"]
         self.archived_runs = data["archived_runs"]
         self.alignments = data["alignments"]
-        self.last_cache_redo_time = data.get('last_cache_redo_time', 0)
+        self.last_cache_redo_time = data.get("last_cache_redo_time", 0)
 
     def _check_cache(self):
         for k in "runs", "archived_runs", "alignments":
@@ -588,6 +589,13 @@ def extract_date_months_as_text(input_str):
     return timestamp
 
 
+def extract_date_yymmdd(input_str):
+    date_match = re.search(r"^\d{2}\d{2}\d{2}$", input_str)
+    date_obj = datetime.datetime.strptime(date_match.group(0), "%y%m%d")
+    timestamp = int(time.mktime(date_obj.timetuple()))
+    return timestamp
+
+
 def extract_illumina_date(input_str):
     for parser in [
         extract_american_date_and_convert_to_unix_timestamp,
@@ -645,6 +653,10 @@ def discover_runs():
             path = Path(str_path)
             rta_complete = path / "RTAComplete.txt"
             run_finish_date = extract_illumina_date(rta_complete.read_text())
+            if run_finished_date == None:
+                str_from_fn = path.filename.split("_")[0]
+                run_finish_date = extract_date_yymmdd(str_from_fn)
+
             add_event(
                 {
                     "type": "run_discovered",
