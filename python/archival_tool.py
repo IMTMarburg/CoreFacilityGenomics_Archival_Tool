@@ -653,8 +653,8 @@ def discover_runs():
             path = Path(str_path)
             rta_complete = path / "RTAComplete.txt"
             run_finish_date = extract_illumina_date(rta_complete.read_text())
-            if run_finished_date == None:
-                str_from_fn = path.filename.split("_")[0]
+            if run_finish_date == None:
+                str_from_fn = path.name.split("_")[0]
                 run_finish_date = extract_date_yymmdd(str_from_fn)
 
             add_event(
