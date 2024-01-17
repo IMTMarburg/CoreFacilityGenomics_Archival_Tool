@@ -60,7 +60,7 @@ Deletion date: {{DELETION_DATE}} ({{DAYS}} days from now).
 It will then be archived until {{ARCHIVE_UNTIL}}.
 {{else}}
 It will not be archived!
-Contact us immediatly if you need an extension!
+Contact us immediately if you need an extension!
 {{/if}}
 """
 

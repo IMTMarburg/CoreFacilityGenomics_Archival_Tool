@@ -28,7 +28,7 @@
       document.getElementById("save").disabled = false;
 
       if (ev != null) {
-        document.getElementById("success").innerHTML = "";
+        document.getElementById("parse_error").innerHTML = "";
       }
     } catch (e) {
       document.getElementById("parse_error").innerHTML =
