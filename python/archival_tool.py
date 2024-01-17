@@ -409,9 +409,10 @@ def apply_template(template_name, template_data):
 
 
 def send_email(receivers, template_name, template_data):
-    # receivers = receivers.copy()
-    # if not 'imtseq@imt.uni-marburg.de' in receivers:
-    #     receivers.append('imtseq@imt.uni-marburg.de')
+    receivers = receivers.copy()
+    # always cc andrea
+    if not 'andrea.nist@imt.uni-marburg.de' in receivers:
+        receivers.append('andrea.nist@imt.uni-marburg.de')
     subject, message = apply_template(template_name, template_data)
     msg = MIMEText(message)
     msg["Subject"] = subject
