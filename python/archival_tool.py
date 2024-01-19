@@ -412,7 +412,8 @@ def send_email(receivers, template_name, template_data):
     subject, message = apply_template(template_name, template_data)
     msg = MIMEText(message)
     msg["Subject"] = subject
-    msg["To"] = ",".join(receivers)
+    msg["To"] = ", ".join(receivers)
+    actually_end = False
     if do_send_emails:
         sender = secrets["mail"]["sender"]
         msg["From"] = sender
@@ -428,10 +429,12 @@ def send_email(receivers, template_name, template_data):
         if res:
             raise ValueError(res)
         res = s.quit()
+        actually_send = True
     add_event(
         {
             "type": "email_send",
             "contents": str(msg.as_string()),
+            "actually_send": actually_send
         }
     )
     return msg.as_string()
