@@ -421,6 +421,7 @@ def send_email(receivers, template_name, template_data):
     msg = MIMEText(message)
     msg["Subject"] = subject
     msg["To"] = ", ".join(receivers)
+    print("Sending email to", msg["To"])
     actually_end = False
     smtp_log = ""
     if do_send_emails:
