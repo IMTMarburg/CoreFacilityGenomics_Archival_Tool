@@ -16,3 +16,4 @@ vite.config.ts.timestamp-*
 /deleted/
 /runs
 test_data.zip
+/import

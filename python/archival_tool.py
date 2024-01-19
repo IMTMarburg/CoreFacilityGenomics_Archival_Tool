@@ -31,6 +31,8 @@ event_dir = data_dir / "events"
 task_dir = data_dir / "tasks"
 secret_file = Path(os.environ["SECRETS_FILE"]).absolute()
 do_send_emails = os.environ.get("DO_SEND_EMAILS", "") == "true"
+auto_cc = os.environ.get("CC", "") 
+
 
 default_templates = toml.load(open(Path(os.environ["TEMPLATES_PATH"]).absolute()))
 
@@ -411,6 +413,10 @@ def apply_template(template_name, template_data):
 
 
 def send_email(receivers, template_name, template_data):
+    for email in auto_cc.split(","):
+        email = email.strip()
+        if not email in receivers:
+            receivers.append(email)
     subject, message = apply_template(template_name, template_data)
     msg = MIMEText(message)
     msg["Subject"] = subject
@@ -425,7 +431,7 @@ def send_email(receivers, template_name, template_data):
         smtp_server = secrets["mail"]["host"]
         smtp_port = secrets["mail"]["port"]
 
-        with contextlid.redirect_stderr(io.StringIO()) as tf:
+        with contextlib.redirect_stderr(io.StringIO()) as tf:
             s = smtplib.SMTP(smtp_server, smtp_port)
             s.set_debuglevel(1)
             s.starttls()
