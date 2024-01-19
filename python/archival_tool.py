@@ -31,7 +31,7 @@ event_dir = data_dir / "events"
 task_dir = data_dir / "tasks"
 secret_file = Path(os.environ["SECRETS_FILE"]).absolute()
 do_send_emails = os.environ.get("DO_SEND_EMAILS", "") == "true"
-auto_cc = os.environ.get("CC", "") 
+auto_cc = os.environ.get("AUTO_CC", "") 
 
 
 default_templates = toml.load(open(Path(os.environ["TEMPLATES_PATH"]).absolute()))
