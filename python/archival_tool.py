@@ -15,6 +15,8 @@ import pybars
 import time
 import re
 import subprocess
+import io
+import contextlib
 import json
 from pathlib import Path
 import os
@@ -414,6 +416,7 @@ def send_email(receivers, template_name, template_data):
     msg["Subject"] = subject
     msg["To"] = ", ".join(receivers)
     actually_end = False
+    smtp_log = ""
     if do_send_emails:
         sender = secrets["mail"]["sender"]
         msg["From"] = sender
@@ -422,19 +425,23 @@ def send_email(receivers, template_name, template_data):
         smtp_server = secrets["mail"]["host"]
         smtp_port = secrets["mail"]["port"]
 
-        s = smtplib.SMTP(smtp_server, smtp_port)
-        s.starttls()
-        s.login(username, password)
-        res = s.sendmail(msg["From"], receivers, msg.as_string())
-        if res:
-            raise ValueError(res)
-        res = s.quit()
-        actually_send = True
+        with contextlid.redirect_stderr(io.StringIO()) as tf:
+            s = smtplib.SMTP(smtp_server, smtp_port)
+            s.set_debuglevel(1)
+            s.starttls()
+            s.login(username, password)
+            res = s.sendmail(msg["From"], receivers, msg.as_string())
+            if res:
+                raise ValueError(res)
+            res = s.quit()
+            actually_send = True
+        smtp_log = tf.getvalue()
     add_event(
         {
             "type": "email_send",
             "contents": str(msg.as_string()),
-            "actually_send": actually_send
+            "actually_send": actually_send,
+            "smtp_log": smtp_log,
         }
     )
     return msg.as_string()
