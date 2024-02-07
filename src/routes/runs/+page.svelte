@@ -106,7 +106,7 @@ Filter:<input type="text" bind:value={text_filter} />
       </tr>
       <tr>
         <th>Planned deletion date</th>
-        <td><DatePeriod timestamp={last_annotation(run, "delete_date")} /></td>
+        <td><DatePeriod timestamp={last_annotation(run, "deletion_date")} /></td>
       </tr>
       <tr>
         <th>Actual deletion date</th>

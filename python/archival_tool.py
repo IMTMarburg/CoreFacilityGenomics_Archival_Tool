@@ -15,6 +15,8 @@ import pybars
 import time
 import re
 import subprocess
+import io
+import contextlib
 import json
 from pathlib import Path
 import os
@@ -29,6 +31,8 @@ event_dir = data_dir / "events"
 task_dir = data_dir / "tasks"
 secret_file = Path(os.environ["SECRETS_FILE"]).absolute()
 do_send_emails = os.environ.get("DO_SEND_EMAILS", "") == "true"
+auto_cc = os.environ.get("AUTO_CC", "")
+
 
 default_templates = toml.load(open(Path(os.environ["TEMPLATES_PATH"]).absolute()))
 
@@ -410,13 +414,17 @@ def apply_template(template_name, template_data):
 
 def send_email(receivers, template_name, template_data):
     receivers = receivers.copy()
-    # always cc andrea
-    if not 'andrea.nist@imt.uni-marburg.de' in receivers:
-        receivers.append('andrea.nist@imt.uni-marburg.de')
+    for email in auto_cc.split(","):
+        email = email.strip()
+        if not email in receivers:
+            receivers.append(email)
     subject, message = apply_template(template_name, template_data)
     msg = MIMEText(message)
     msg["Subject"] = subject
     msg["To"] = ",".join(receivers)
+    logger.debug("Sending email to", msg["To"])
+    actually_end = False
+    smtp_log = ""
     if do_send_emails:
         sender = secrets["mail"]["sender"]
         msg["From"] = sender
@@ -425,17 +433,23 @@ def send_email(receivers, template_name, template_data):
         smtp_server = secrets["mail"]["host"]
         smtp_port = secrets["mail"]["port"]
 
-        s = smtplib.SMTP(smtp_server, smtp_port)
-        s.starttls()
-        s.login(username, password)
-        res = s.sendmail(msg["From"], receivers, msg.as_string())
-        if res:
-            raise ValueError(res)
-        res = s.quit()
+        with contextlib.redirect_stderr(io.StringIO()) as tf:
+            s = smtplib.SMTP(smtp_server, smtp_port)
+            s.set_debuglevel(1)
+            s.starttls()
+            s.login(username, password)
+            res = s.sendmail(msg["From"], receivers, msg.as_string())
+            if res:
+                raise ValueError(res)
+            res = s.quit()
+            actually_send = True
+        smtp_log = tf.getvalue()
     add_event(
         {
             "type": "email_send",
             "contents": str(msg.as_string()),
+            "actually_send": actually_send,
+            "smtp_log": smtp_log,
         }
     )
     return msg.as_string()
@@ -658,7 +672,7 @@ def discover_runs():
             rta_complete = path / "RTAComplete.txt"
             run_finish_date = extract_illumina_date(rta_complete.read_text())
             if run_finish_date == None:
-                str_from_fn = path.filename.split("_")[0]
+                str_from_fn = path.name.split("_")[0]
                 run_finish_date = extract_date_yymmdd(str_from_fn)
 
             add_event(
