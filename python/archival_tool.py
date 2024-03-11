@@ -491,6 +491,7 @@ def provide_download_link(task):
                         "URL": secrets["mail"]["url"] + output_name,
                         "SIZE": format_number(
                             (download_dir / output_name).stat().st_size
+                            decimals=False
                         ),
                         "DELETION_DATE": format_date(
                             datetime.datetime.fromtimestamp(task["invalid_after"])
@@ -771,8 +772,12 @@ def parse_iso_date(s):
     return datetime.datetime.strptime(s, "%Y-%m-%d")
 
 
-def format_number(number):
-    return f"{number:,.2f}"
+def format_number(number, decimals=True):
+    if decimals:
+        return f"{number:,.2f}"
+    else:
+        number = int(number)
+        return f"{number:,}"
 
 
 def format_date(dt):
