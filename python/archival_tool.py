@@ -490,7 +490,7 @@ def provide_download_link(task):
                     {
                         "URL": secrets["mail"]["url"] + output_name,
                         "SIZE": format_number(
-                            (download_dir / output_name).stat().st_size
+                            (download_dir / output_name).stat().st_size,
                             decimals=False
                         ),
                         "DELETION_DATE": format_date(
