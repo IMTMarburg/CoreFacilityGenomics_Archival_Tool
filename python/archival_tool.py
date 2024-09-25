@@ -334,6 +334,9 @@ class CachedRunSearcher:
                 if child.is_dir():
                     if depth == 2 and child.name == path.name:
                         yield from self.custom_search(child, depth=0)
+                    elif child.name.startswith("Alignment"):
+                        yield from self.custom_search(child, depth=0)
+
                     else:
                         yield from self.custom_search(child, depth=depth + 1)
 
