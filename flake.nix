@@ -54,6 +54,8 @@
               };
               propagatedBuildInputs = [pkgs.python3Packages.twisted];
               doCheck = false;
+              build-system = [pkgs.python3Packages.setuptools] ;
+              pyproject = true;
             };
             pybars = pkgs.python3Packages.buildPythonPackage rec{
               pname = "pybars";
@@ -67,6 +69,8 @@
               };
               doCheck = false;
               propagatedBuildInputs = [pymeta3];
+              build-system = [pkgs.python3Packages.setuptools] ;
+              pyproject = true;
             };
             mypython = pkgs.python3.withPackages (p: [pybars p.toml p.python-dateutil p.loguru]);
           in
