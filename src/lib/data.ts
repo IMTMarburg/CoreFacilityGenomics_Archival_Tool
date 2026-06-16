@@ -176,6 +176,13 @@ export function pending_sorts(tasks) {
   );
 }
 
+export function pending_novogene_downloads(tasks) {
+  return tasks.filter((task) =>
+    task["type"] == "novogene_download" && (task["status"] == "open" ||
+      task["status"] == "processing")
+  );
+}
+
 function runs_where_x_is_true(run_list, x) {
   return run_list.filter((run) => {
     return run[x];

@@ -896,6 +896,25 @@ def delete_from_archive(task):
     update_task(task, {"status": "done"})
 
 
+def download_novogene(task):
+    logger.info(f"Downloading Novogene batch {task['batch_no']}")
+    script_path = Path(__file__).parent / "download_novogene.sh"
+    result = subprocess.run(
+        ["bash", str(script_path), task["batch_no"], task["password"]],
+        capture_output=True,
+        text=True,
+    )
+    output = {"stdout": result.stdout, "stderr": result.stderr}
+    if result.returncode != 0:
+        logger.error(f"Novogene download failed: {result.stderr}")
+        update_task(task, {"status": "failed", "finish_time": int(time.time()), **output})
+        add_event({"type": "novogene_download_failed", "batch_no": task["batch_no"], **output})
+    else:
+        logger.info(f"Novogene download done: {task['batch_no']}")
+        update_task(task, {"status": "done", "finish_time": int(time.time()), **output})
+        add_event({"type": "novogene_download_done", "batch_no": task["batch_no"]})
+
+
 def sort_by_date(task):
     logger.debug("Sort_by_date")
     for fn in working_dir.glob("*"):
@@ -1144,6 +1163,9 @@ if __name__ == "__main__":
                 ):
                     update_task(task, {"status": "processing"})
                     delete_from_archive(task)
+            elif task["type"] == "novogene_download":
+                update_task(task, {"status": "processing"})
+                download_novogene(task)
             elif task["type"] == "sort_by_date":
                 update_task(task, {"status": "processing"})
                 sort_by_date(task)
