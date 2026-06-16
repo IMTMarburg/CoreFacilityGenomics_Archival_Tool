@@ -13,6 +13,8 @@ ORIGIN=http://localhost:3000 nix run github:knarkzel/sveltekit-nix
 ```
 cd ./
 nix develop
+
+# yarn (to get node modules est up!)
 # now something like this to run the webserver.
 ./test_js.sh
 (port / url will be printed)

@@ -111,7 +111,7 @@
               text = ''
                 export TEMPLATES_PATH=${./static/mail_templates.toml}
                 export TIMES_PATH=${./static/times.toml}
-                ${mypython}/bin/python ${./python/archival_tool.py}
+                ${mypython}/bin/python "''${1:-${./python/archival_tool.py}}"
               '';
             };
         };
