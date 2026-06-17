@@ -111,7 +111,7 @@
               text = ''
                 export TEMPLATES_PATH=${./static/mail_templates.toml}
                 export TIMES_PATH=${./static/times.toml}
-                export PATH=$PATH:${pkgs.bash.out}/bin/
+                export PATH="$PATH:${pkgs.bash.out}/bin/:${pkgs.curl.bin}/bin/:${pkgs.coreutils}/bin"
                 ${mypython}/bin/python "''${1:-${./python/archival_tool.py}}"
               '';
             };
