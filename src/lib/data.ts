@@ -141,6 +141,24 @@ export async function load_runs() {
   return sorted_runs;
 }
 
+export async function load_novogene_batches() {
+  let events = await load_events();
+  let batches = {};
+  for (let ev of events) {
+    if (ev.type == "novogene_batch_available") {
+      batches[ev.batch_no] = {
+        batch_no: ev.batch_no,
+        tars: ev.tars ?? [],
+        discovered: ev.timestamp,
+      };
+    }
+  }
+  let names = Object.keys(batches);
+  names.sort();
+  names.reverse();
+  return names.map((n) => batches[n]);
+}
+
 export function pending_archivals(tasks) {
   return tasks.filter((task) =>
     task["type"] == "archive_run" && (task["status"] == "open" ||

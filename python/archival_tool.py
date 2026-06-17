@@ -15,6 +15,7 @@ import pybars
 import time
 import re
 import subprocess
+import tarfile
 import io
 import contextlib
 import json
@@ -907,6 +908,9 @@ PASSWORD="${2:?Usage: $0 BATCH_NO PASSWORD}"
 DOWNLOAD_DIR="${WORKING_DIR}/Novogene/${BATCH_NO}"
 META_DIR="${WORKING_DIR}/Novogene/meta/${BATCH_NO}"
 SENTINEL="${META_DIR}/done"
+# The sentinel inside the download folder is the authoritative "this batch is
+# fully downloaded" marker that batch discovery / repacking looks at.
+DONE_SENTINEL="${DOWNLOAD_DIR}/done"
 
 if [[ -f "$SENTINEL" ]]; then
     echo "Batch $BATCH_NO already complete, skipping."
@@ -948,7 +952,8 @@ done < $META_DIR/downloads.txt
 
 if [[ $FAILED -eq 0 ]]; then
     touch "$SENTINEL"
-    echo "All done. Sentinel written: $SENTINEL"
+    touch "$DONE_SENTINEL"
+    echo "All done. Sentinel written: $SENTINEL and $DONE_SENTINEL"
 else
     echo "$FAILED file(s) failed."
     exit 1
@@ -975,6 +980,151 @@ fi
         logger.info(f"Novogene download done: {task['batch_no']}")
         update_task(task, {"status": "done", "finish_time": int(time.time()), **output})
         add_event({"type": "novogene_download_done", "batch_no": task["batch_no"]})
+
+
+def novogene_batch_dir(batch_no):
+    return working_dir / "Novogene" / batch_no
+
+
+def repack_novogene_fastqs(batch_dir, output_file):
+    """Stream every ``*.fq.gz`` out of a batch's ``<batch>*.tar`` deliveries
+    into a single new tar, preserving the in-tar folder structure and without
+    ever extracting to disk.
+
+    Novogene delivers one batch as one or more plain ``.tar`` files whose
+    members are already gzip-compressed reads, so the output tar is left
+    uncompressed.
+    """
+    source_tars = sorted(batch_dir.glob("*.tar"))
+    if not source_tars:
+        raise ValueError(f"No .tar files found in {batch_dir}")
+    count = 0
+    try:
+        with tarfile.open(output_file, "w") as out_tar:
+            for src in source_tars:
+                logger.debug(f"repacking fastqs from {src}")
+                # stream mode (r|) -> sequential, no random seeks, low memory
+                with tarfile.open(src, "r|") as in_tar:
+                    for member in in_tar:
+                        if not member.isfile():
+                            continue
+                        if not member.name.endswith(".fq.gz"):
+                            continue
+                        extracted = in_tar.extractfile(member)
+                        out_tar.addfile(member, extracted)
+                        count += 1
+    except Exception:
+        output_file.unlink(missing_ok=True)
+        raise
+    if count == 0:
+        output_file.unlink(missing_ok=True)
+        raise ValueError(f"No .fq.gz files found in the tars in {batch_dir}")
+    logger.info(f"repacked {count} fastq files into {output_file}")
+    return count
+
+
+def provide_novogene_download(task):
+    """Repack a finished Novogene batch's fastqs into a fresh tar and provide a
+    download link. This is a separate send path from run/alignment downloads."""
+    logger.debug("providing novogene download")
+    batch_no = task["batch_no"]
+    batch_dir = novogene_batch_dir(batch_no)
+    if not (batch_dir / "done").exists():
+        update_task(
+            task,
+            {"status": "failed", "msg": "batch download not finished (no sentinel)"},
+        )
+        raise ValueError(f"batch {batch_no} not finished (no done sentinel)")
+
+    output_name = (
+        time.strftime("%Y-%m-%d_%H-%M-%S_")
+        + safe_name(batch_no)
+        + "_"
+        + random_text(5)
+        + ".tar"
+    )
+    try:
+        repack_novogene_fastqs(batch_dir, download_dir / output_name)
+        if task["receivers"]:
+            try:
+                email = send_email(
+                    task["receivers"],
+                    "download_ready",
+                    {
+                        "URL": secrets["mail"]["url"] + output_name,
+                        "SIZE": format_number(
+                            (download_dir / output_name).stat().st_size, decimals=False
+                        ),
+                        "DELETION_DATE": format_date(
+                            datetime.datetime.fromtimestamp(task["invalid_after"])
+                        ),
+                        "DAYS": days_until(
+                            datetime.datetime.fromtimestamp(task["invalid_after"])
+                        ),
+                        "COMMENT": task["comment"],
+                    },
+                )
+                email_success = "Mail sent:\n" + email
+            except Exception as e:
+                email_success = f"Sent failed: {e}"
+                raise
+        else:
+            email_success = "No receivers"
+        # Reuse the run_download_provided event so cleanup_downloads() expires
+        # this file like any other provided download.
+        add_event(
+            {
+                "type": "run_download_provided",
+                "run": batch_no,
+                "filename": str(output_name),
+                "finish_time": int(time.time()),
+                "details": {"receivers": task["receivers"], "novogene_batch": batch_no},
+                "email_success": email_success,
+                "invalid_after_timestamp": task["invalid_after"],
+            }
+        )
+        update_task(
+            task,
+            {
+                "status": "done",
+                "filename": output_name,
+                "email_success": email_success.startswith("Mail sent"),
+                "finish_time": int(time.time()),
+            },
+        )
+    except Exception as e:
+        update_task(task, {"status": "failed", "msg": str(e)})
+        raise
+
+
+def discover_novogene_batches():
+    """Detect finished Novogene downloads (download-folder 'done' sentinel) and
+    emit a one-time novogene_batch_available event per batch."""
+    logger.info("Discovering Novogene batches")
+    novogene_dir = working_dir / "Novogene"
+    if not novogene_dir.exists():
+        return
+    seen = {
+        event["batch_no"]
+        for event in load_events()
+        if event.get("type", "") == "novogene_batch_available"
+    }
+    for batch_dir in sorted(novogene_dir.iterdir()):
+        if not batch_dir.is_dir() or batch_dir.name == "meta":
+            continue
+        if not (batch_dir / "done").exists():
+            continue
+        batch_no = batch_dir.name
+        if batch_no in seen:
+            continue
+        tars = sorted(p.name for p in batch_dir.glob("*.tar"))
+        add_event(
+            {
+                "type": "novogene_batch_available",
+                "batch_no": batch_no,
+                "tars": tars,
+            }
+        )
 
 
 def sort_by_date(task):
@@ -1235,6 +1385,9 @@ if __name__ == "__main__":
             elif task["type"] == "novogene_download":
                 update_task(task, {"status": "processing"})
                 download_novogene(task)
+            elif task["type"] == "provide_novogene_download":
+                update_task(task, {"status": "processing"})
+                provide_novogene_download(task)
             elif task["type"] == "sort_by_date":
                 update_task(task, {"status": "processing"})
                 sort_by_date(task)
@@ -1245,3 +1398,4 @@ if __name__ == "__main__":
         send_deletion_warnings()
         send_archive_deletion_warnings()
         discover_runs()
+        discover_novogene_batches()

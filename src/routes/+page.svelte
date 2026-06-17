@@ -135,6 +135,7 @@ That file probably needs to be placed by hand for the NovaSeq runs.
   <li><a href="{base}/delete">Delete from working</a></li>
   <li><a href="{base}/remove_from_archive">Delete from archive</a></li>
   <li><a href="{base}/novogene_download">Download from Novogene</a></li>
+  <li><a href="{base}/send_novogene">Send Novogene batch</a></li>
 </ul>
 <h2>Inspection</h2>
 <ul>
