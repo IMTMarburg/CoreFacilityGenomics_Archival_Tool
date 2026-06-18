@@ -987,7 +987,7 @@ def novogene_batch_dir(batch_no):
 
 
 def repack_novogene_fastqs(batch_dir, output_file):
-    """Stream every ``*.fq.gz`` out of a batch's ``<batch>*.tar`` deliveries
+    """Stream every ``*.fq.gz`` and ``*.fastq.gz`` out of a batch's ``<batch>*.tar`` deliveries
     into a single new tar, preserving the in-tar folder structure and without
     ever extracting to disk.
 
@@ -1008,17 +1008,16 @@ def repack_novogene_fastqs(batch_dir, output_file):
                     for member in in_tar:
                         if not member.isfile():
                             continue
-                        if not member.name.endswith(".fq.gz"):
-                            continue
-                        extracted = in_tar.extractfile(member)
-                        out_tar.addfile(member, extracted)
-                        count += 1
+                        if member.name.endswith(".fq.gz") or member.name.endswith(".fastq.gz"):
+                            extracted = in_tar.extractfile(member)
+                            out_tar.addfile(member, extracted)
+                            count += 1
     except Exception:
         output_file.unlink(missing_ok=True)
         raise
     if count == 0:
         output_file.unlink(missing_ok=True)
-        raise ValueError(f"No .fq.gz files found in the tars in {batch_dir}")
+        raise ValueError(f"No .fq.gz / fastq.gz files found in the tars in {batch_dir}")
     logger.info(f"repacked {count} fastq files into {output_file}")
     return count
 
