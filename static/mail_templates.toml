@@ -82,3 +82,15 @@ Please contact the core facilty if you need to download the data (before that da
       "RUN_NAME"= "230623_NB552003_0218_AHJ3F3BGXT"
       "ARCHIVE_UNTIL"= "2033-06-27"
       "DAYS"= 30
+
+
+[novogene_download_done]
+
+  subject = "Novogene Download Done: {BATCH_NO}"
+  default = """
+    A download from Novogene for {BATCH_NO} has finished successfully.
+  """
+novogene_download_done.example_data]
+  BATCH_NO = "X208SC26078270-Z01-F999"
+
+  

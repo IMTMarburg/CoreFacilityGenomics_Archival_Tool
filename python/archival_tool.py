@@ -980,6 +980,8 @@ fi
         logger.info(f"Novogene download done: {task['batch_no']}")
         update_task(task, {"status": "done", "finish_time": int(time.time()), **output})
         add_event({"type": "novogene_download_done", "batch_no": task["batch_no"]})
+        send_email(["imtseq@uni-marburg.de"], 'novogene_download_done',{'BATCH_NO': task['batch_no']})
+
 
 
 def novogene_batch_dir(batch_no):
