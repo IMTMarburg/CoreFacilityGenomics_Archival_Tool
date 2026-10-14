@@ -90,7 +90,7 @@ Please contact the core facilty if you need to download the data (before that da
   default = """
     A download from Novogene for {BATCH_NO} has finished successfully.
   """
-novogene_download_done.example_data]
+[novogene_download_done.example_data]
   BATCH_NO = "X208SC26078270-Z01-F999"
 
   
