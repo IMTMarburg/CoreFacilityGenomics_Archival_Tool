@@ -74,7 +74,7 @@ Contact us immediately if you need an extension!
 [run_about_to_be_removed_from_archive]
 	subject = "Sequencing run about to be removed from archive"
     default = """
-Your sequencing run {RUN_NAME} is about to be deleted from archive.
+Your sequencing run {{RUN_NAME}} is about to be deleted from archive.
 It will be kept until {{ARCHIVE_UNTIL}}, which is {{DAYS}} days from now.
 Please contact the core facilty if you need to download the data (before that date!).
  """
@@ -86,9 +86,9 @@ Please contact the core facilty if you need to download the data (before that da
 
 [novogene_download_done]
 
-  subject = "Novogene Download Done: {BATCH_NO}"
+  subject = "Novogene Download Done: {{BATCH_NO}}"
   default = """
-    A download from Novogene for {BATCH_NO} has finished successfully.
+    A download from Novogene for {{BATCH_NO}} has finished successfully.
   """
 [novogene_download_done.example_data]
   BATCH_NO = "X208SC26078270-Z01-F999"
