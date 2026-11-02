@@ -398,22 +398,26 @@ def find_run_alignment(run, alignment):
 def apply_template(template_name, template_data):
     # find latest version of the template from the events
     template = None
+    subject_template = None
     for event in reversed(load_events()):
         if (
             event.get("type", "") == "template_changed"
             and event["name"] == template_name
         ):
             template = event["text"]
-            subject = event["subject"]
+            subject_template = event["subject"]
             break
     if template is None:
         template = default_templates[template_name]["default"]
-        subject = default_templates[template_name]["subject"]
+    if subject_template is None:
+        subject_template = default_templates[template_name]["subject"]
     from pybars import Compiler
 
     compiler = Compiler()
     template = compiler.compile(template)
-    return subject, template(template_data)
+    compiler2 = Compiler()
+    subject_template = compiler2.compile(subject_template)
+    return subject_template(template_data), template(template_data)
 
 
 def send_email(receivers, template_name, template_data):
@@ -980,8 +984,11 @@ fi
         logger.info(f"Novogene download done: {task['batch_no']}")
         update_task(task, {"status": "done", "finish_time": int(time.time()), **output})
         add_event({"type": "novogene_download_done", "batch_no": task["batch_no"]})
-        send_email(["imtseq@uni-marburg.de"], 'novogene_download_done',{'BATCH_NO': task['batch_no']})
-
+        send_email(
+            ["imtseq@uni-marburg.de"],
+            "novogene_download_done",
+            {"BATCH_NO": task["batch_no"]},
+        )
 
 
 def novogene_batch_dir(batch_no):
@@ -1010,7 +1017,9 @@ def repack_novogene_fastqs(batch_dir, output_file):
                     for member in in_tar:
                         if not member.isfile():
                             continue
-                        if member.name.endswith(".fq.gz") or member.name.endswith(".fastq.gz"):
+                        if member.name.endswith(".fq.gz") or member.name.endswith(
+                            ".fastq.gz"
+                        ):
                             extracted = in_tar.extractfile(member)
                             out_tar.addfile(member, extracted)
                             count += 1
