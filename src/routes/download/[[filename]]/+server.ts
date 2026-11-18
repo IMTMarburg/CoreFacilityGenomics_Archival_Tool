@@ -15,7 +15,7 @@ export async function GET({ request, params }) {
     //filenames look like 2023-04-14_10-16-29_oldest_run_ever_hsenl.tar.gz
     //run is after date, and before final _
     let match = filename.match(
-      /(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})_(.*)_[^_]+\.tar\.zstd/,
+      /^(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})_(.*)_[^_.]+\.tar(\.[a-z]+)?$/,
     );
     if (match == null) {
       throw new Error("failed to parse filename");

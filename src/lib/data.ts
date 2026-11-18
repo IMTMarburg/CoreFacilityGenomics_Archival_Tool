@@ -44,7 +44,8 @@ async function load_json_log(key: string) {
         parsed["timestamp"] = timestamp_int;
         parsed["pid"] = pid_int;
         parsed["count"] = count_int;
-        parsed["filename"] = file;
+        // not "filename": tasks/events use that key for the download file
+        parsed["json_filename"] = file;
         events.push(parsed);
       } catch (e) {
         console.log("Error parsing json file " + file, e);
@@ -469,8 +470,9 @@ export async function add_task(type: string, task: object, user) {
 
 export async function update_task(task: object, new_values: object) {
   let out = Object.assign({}, task, new_values);
+  delete out["json_filename"];
   let target_dir = process.env.DATA_DIR + "/tasks";
-  let filename = task.filename;
+  let filename = task.json_filename;
   let filepath = `${target_dir}/${filename}`;
   let json = JSON.stringify(out, null, 2);
   await fs.promises.writeFile(filepath, json);
