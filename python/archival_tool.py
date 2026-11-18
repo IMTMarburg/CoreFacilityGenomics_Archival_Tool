@@ -1046,7 +1046,7 @@ def download_microsynth(task):
             {
                 "type": "microsynth_download_done",
                 "batch_no": task["batch_no"],
-                "tars": tars,
+                "tars": tars, # not used for the packer!
             }
         )
         send_email(
@@ -1210,7 +1210,7 @@ def discover_novogene_batches():
             {
                 "type": "novogene_batch_available",
                 "batch_no": batch_no,
-                "tars": tars,
+                "tars": tars, # not used for the packer!
             }
         )
 

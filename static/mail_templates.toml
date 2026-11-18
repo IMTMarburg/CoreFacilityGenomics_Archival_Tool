@@ -97,9 +97,9 @@ Please contact the core facilty if you need to download the data (before that da
 
 [microsynth_download_done]
 
-  subject = "Microsynth Download Done: {BATCH_NO}"
+  subject = "Microsynth Download Done: {{BATCH_NO}}"
   default = """
-    A download from Microsynth for {BATCH_NO} has finished successfully.
+    A download from Microsynth for {{BATCH_NO}} has finished successfully.
   """
 [microsynth_download_done.example_data]
   BATCH_NO = "4919533"
