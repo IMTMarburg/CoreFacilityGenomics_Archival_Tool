@@ -136,6 +136,8 @@ That file probably needs to be placed by hand for the NovaSeq runs.
   <li><a href="{base}/remove_from_archive">Delete from archive</a></li>
   <li><a href="{base}/novogene_download">Download from Novogene</a></li>
   <li><a href="{base}/send_novogene">Send Novogene batch</a></li>
+  <li><a href="{base}/microsynth_download">Download from Microsynth</a></li>
+  <li><a href="{base}/send_microsynth">Send Microsynth batch</a></li>
 </ul>
 <h2>Inspection</h2>
 <ul>

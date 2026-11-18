@@ -94,3 +94,13 @@ Please contact the core facilty if you need to download the data (before that da
   BATCH_NO = "X208SC26078270-Z01-F999"
 
   
+
+[microsynth_download_done]
+
+  subject = "Microsynth Download Done: {BATCH_NO}"
+  default = """
+    A download from Microsynth for {BATCH_NO} has finished successfully.
+  """
+[microsynth_download_done.example_data]
+  BATCH_NO = "4919533"
+

@@ -34,7 +34,6 @@ secret_file = Path(os.environ["SECRETS_FILE"]).absolute()
 do_send_emails = os.environ.get("DO_SEND_EMAILS", "") == "true"
 auto_cc = os.environ.get("AUTO_CC", "")
 
-
 default_templates = toml.load(open(Path(os.environ["TEMPLATES_PATH"]).absolute()))
 
 times = toml.load(open(Path(os.environ["TIMES_PATH"]).absolute()))
@@ -995,6 +994,72 @@ def novogene_batch_dir(batch_no):
     return working_dir / "Novogene" / batch_no
 
 
+def download_microsynth(task):
+    microsynth_username = secrets["microsynth"]["username"]
+    microsynth_password = secrets["microsynth"]["password"]
+    if not re.fullmatch(r"\d+", task["batch_no"], re.ASCII):
+        update_task(task, {"status": "failed", "msg": "batch_no must be numeric"})
+        return
+    logger.info(f"Downloading microsynth batch {task['batch_no']}")
+    batch_dir = microsynth_batch_dir(task["batch_no"])
+    batch_dir.mkdir(exist_ok=True, parents=True)
+    result = subprocess.run(
+        [
+            "sshpass",
+            "-e",
+            "sftp",
+            "-oBatchMode=no",
+            "-b",
+            "-",
+            "-oStrictHostKeyChecking=accept-new",
+            "-P",
+            "22",
+            f"{microsynth_username}@shop.microsynth.com",
+        ],
+        env={**os.environ, "SSHPASS": microsynth_password},
+        input=f'cd "{task["batch_no"]}"\nget -r * ./\nbye\n',
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=batch_dir,
+    )
+    output = {"stdout": result.stdout, "stderr": result.stderr}
+    if result.returncode != 0:
+        logger.error(f"Microsynth download failed: {result.stderr}")
+        update_task(
+            task, {"status": "failed", "finish_time": int(time.time()), **output}
+        )
+        add_event(
+            {
+                "type": "microsynth_download_failed",
+                "batch_no": task["batch_no"],
+                **output,
+            }
+        )
+    else:
+        (batch_dir / "done").write_text("done")
+
+        logger.info(f"Microsynth download done: {task['batch_no']}")
+        update_task(task, {"status": "done", "finish_time": int(time.time()), **output})
+        tars = sorted(p.name for p in batch_dir.glob("*.tar"))
+        add_event(
+            {
+                "type": "microsynth_download_done",
+                "batch_no": task["batch_no"],
+                "tars": tars,
+            }
+        )
+        send_email(
+            ["imtseq@uni-marburg.de"],
+            "microsynth_download_done",
+            {"BATCH_NO": task["batch_no"]},
+        )
+
+
+def microsynth_batch_dir(batch_no):
+    return working_dir / "MicroSynth" / batch_no
+
+
 def repack_novogene_fastqs(batch_dir, output_file):
     """Stream every ``*.fq.gz`` and ``*.fastq.gz`` out of a batch's ``<batch>*.tar`` deliveries
     into a single new tar, preserving the in-tar folder structure and without
@@ -1034,11 +1099,22 @@ def repack_novogene_fastqs(batch_dir, output_file):
 
 
 def provide_novogene_download(task):
-    """Repack a finished Novogene batch's fastqs into a fresh tar and provide a
-    download link. This is a separate send path from run/alignment downloads."""
-    logger.debug("providing novogene download")
+    provide_foreign_download(task, novogene_batch_dir(task["batch_no"]))
+
+
+def provide_microsynth_download(task):
+    provide_foreign_download(task, microsynth_batch_dir(task["batch_no"]))
+
+
+def provide_foreign_download(task, batch_dir):
+    """Repack a finished Novogene-style batch's fastqs into a fresh tar and provide a
+    download link. This is a separate send path from run/alignment downloads.
+
+    It reads every tar from the task's list, and packs the contained (fastq/fq).gz
+
+    """
+    logger.debug(f"providing foreign download from {batch_dir}")
     batch_no = task["batch_no"]
-    batch_dir = novogene_batch_dir(batch_no)
     if not (batch_dir / "done").exists():
         update_task(
             task,
@@ -1110,6 +1186,8 @@ def provide_novogene_download(task):
 def discover_novogene_batches():
     """Detect finished Novogene downloads (download-folder 'done' sentinel) and
     emit a one-time novogene_batch_available event per batch."""
+    # todo: Why are we not just hooking the novogene_downlaod_done?
+    # probably claude thought we had previous batches...
     logger.info("Discovering Novogene batches")
     novogene_dir = working_dir / "Novogene"
     if not novogene_dir.exists():
@@ -1395,9 +1473,15 @@ if __name__ == "__main__":
             elif task["type"] == "novogene_download":
                 update_task(task, {"status": "processing"})
                 download_novogene(task)
+            elif task["type"] == "microsynth_download":
+                update_task(task, {"status": "processing"})
+                download_microsynth(task)
             elif task["type"] == "provide_novogene_download":
                 update_task(task, {"status": "processing"})
                 provide_novogene_download(task)
+            elif task["type"] == "provide_microsynth_download":
+                update_task(task, {"status": "processing"})
+                provide_microsynth_download(task)
             elif task["type"] == "sort_by_date":
                 update_task(task, {"status": "processing"})
                 sort_by_date(task)
