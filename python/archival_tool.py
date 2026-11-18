@@ -1041,7 +1041,7 @@ def download_microsynth(task):
 
         logger.info(f"Microsynth download done: {task['batch_no']}")
         update_task(task, {"status": "done", "finish_time": int(time.time()), **output})
-        tars = sorted(p.name for p in batch_dir.glob("*.tar"))
+        tars = sorted(p.name for p in batch_dir.glob("**/*.tar"))
         add_event(
             {
                 "type": "microsynth_download_done",
