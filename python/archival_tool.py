@@ -1069,7 +1069,7 @@ def repack_novogene_fastqs(batch_dir, output_file):
     members are already gzip-compressed reads, so the output tar is left
     uncompressed.
     """
-    source_tars = sorted(batch_dir.glob("*.tar"))
+    source_tars = sorted(batch_dir.glob("**/*.tar"))
     if not source_tars:
         raise ValueError(f"No .tar files found in {batch_dir}")
     count = 0
